@@ -2,11 +2,6 @@ package main
 
 import "sync"
 
-// task to implement the function
-func merge(chs ...chan int) chan int {
-
-}
-
 // solve
 func merge(chs ...chan int) chan int {
 	newCh := make(chan int)

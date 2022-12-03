@@ -13,7 +13,7 @@ func main() {
     a()
 }
 
-// ответ, что выведется: {0, 1, 2, 3}, {0, 1, 2, 4}
+// ответ, что выведется
 
 // 2
 func main() {
@@ -31,7 +31,7 @@ func worker() chan int {
     return ch
 }
 
-// ответ, что выведется: 6
+// ответ, что выведется
 
 // user
 id | firstname | lastname | birth
