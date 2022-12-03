@@ -2,6 +2,9 @@ package main
 
 import "time"
 
+// Ответ 1: {0, 1, 2, 3}, {0, 1, 2, 4}
+// Ответ 2: 6
+
 // func a() {
 // 	x := []int{}
 // 	x = append(x, 0)
