@@ -1,197 +1,171 @@
 package main
 
-https://code.yandex-team.ru/041682aa-75a5-4789-bffa-46d8d40b56b4 
+import (
+	"context"
+	"fmt"
+	"io"
+	"sync"
+	"time"
+)
 
-// 1. 
+// https://code.yandex-team.ru/041682aa-75a5-4789-bffa-46d8d40b56b4
 
-// Что выведет код и почему? 
+// 1. Что выведет код и почему?
 
-func setLinkHome(link *string) { 
-    *link = "http://home" 
-} 
+func setLinkHome(link *string) {
+	*link = "http://home"
+}
 
+func main() {
+	link := "http://other"
 
-func main()  {
-    link := "http://other" 
+	setLinkHome(&link)
 
-    setLinkHome(&link) 
+	fmt.Println(link)
+}
 
-    fmt.Println(link) 
-}  
+// 2. Будет ли напечатан “ok” ?
 
-  
+func main() {
+	defer func() {
+		recover()
+	}()
 
-// 2. 
+	panic("test panic")
 
-// Будет ли напечатан “ok” ? 
+	fmt.Println("ok")
+}
 
-func main() { 
-    defer func() { 
-        recover() 
-    }() 
+// 3.
 
-    panic("test panic") 
+// Функция должна напечатать:
+// one
+// two
+// three
+// (в любом порядке и в конце обязательно)
+// done!
 
-    fmt.Println("ok") 
-} 
+// Но это не так, исправь код
 
-  
+func printText(data []string) {
+	for _, v := range data {
+		go func() {
+			fmt.Println(v)
+		}()
 
-  
+	}
 
-// 3. 
+	fmt.Println("done!")
 
-// Функция должна напечатать: 
+}
 
-// one 
+func main() {
+	data := []string{"one", "two", "three"}
 
-// two 
+	printText(data)
+}
 
-// three 
+// 4.
+// Мы пытаемся подсчитать количество выполненных параллельно операций,
+// что может пойти не так?
 
-// (в любом порядке и в конце обязательно) 
+var callCounter uint
 
-// done! 
+func main() {
+	wg := sync.WaitGroup{}
 
-// Но это не так, исправь код 
-  
-func printText(data []string) { 
-    for _, v := range data { 
-        go func() {
-            fmt.Println(v) 
-        }
+	wg.Add(10000)
+	for i := 0; i < 10000; i++ {
+		go func() {
+			// Ходим в базу, делаем долгую работу
+			time.Sleep(time.Second)
+			// Увеличиваем счетчик
+			callCounter++
+			wg.Done()
+		}()
+	}
 
-    } 
+	wg.Wait()
 
-    fmt.Println("done!") 
+	fmt.Println("Call counter value = ", callCounter)
+}
 
-} 
+// 5.
 
-data := []string{"one", "two", "three"} 
+// Есть функция processDataInternal, которая может выполняться неопределенно долго.
+// Чтобы контролировать процесс, мы добавили таймаут выполнения ф-ии через context.
 
-printText(data) 
+// Какие недостатки кода ниже?
 
-  
+func (s *Service) ProcessData(timeoutCtx context.Context, r io.Reader) error {
+	errCh := make(chan error)
 
-  
+	go func() {
+		errCh <- s.processDataInternal(r)
+	}()
 
-// 4. 
+	select {
+	case err := <-errCh:
+		return err
+	case <-timeoutCtx.Done():
+		return timeoutCtx.Err()
+	}
+}
 
-// Мы пытаемся подсчитать количество выполненных параллельно операций,  
-
-// что может пойти не так?  
-
-var callCounter uint 
-
-func main() { 
-    wg := sync.WaitGroup{} 
-
-    wg.Add(10000) 
-    for i := 0; i < 10000; i++ { 
-        go func() { 
-            // Ходим в базу, делаем долгую работу 
-            time.Sleep(time.Second) 
-            // Увеличиваем счетчик 
-            callCounter++ 
-            wg.Done() 
-        }() 
-    } 
-
-    wg.Wait() 
-
-    fmt.Println("Call counter value = ", callCounter) 
-} 
-
-  
-
-  
-
-// 5. 
-
-// Есть функция processDataInternal, которая может выполняться неопределенно долго. 
-
-// Чтобы контролировать процесс, мы добавили таймаут выполнения ф-ии через context. 
-
-// Какие недостатки кода ниже? 
-
-func (s *Service) ProcessData(timeoutCtx context.Context, r io.Reader) error { 
-  errCh := make(chan error) 
-
-  go func() { 
-    errCh <- s.processDataInternal(r) 
-  }() 
-
-  select { 
-  case err := <-errCh: 
-    return err 
-  case <-timeoutCtx.Done(): 
-    return timeoutCtx.Err() 
-  } 
-} 
-
-  
-
-  
-
-// 6. 
-
-// Опиши, что делает функция isCallAllowed? 
+// 6.
+// Опиши, что делает функция isCallAllowed?
 
 // TODO разобрать что же она всё таки делает
-var callCount = make(map[uint]uint) 
 
-var locker = &sync.Mutex{} 
+var callCount = make(map[uint]uint)
 
-func isCallAllowed(allowedCount uint) bool { 
-    if allowedCount == 0 { 
+var locker = &sync.Mutex{}
 
-        return true 
+func isCallAllowed(allowedCount uint) bool {
+	if allowedCount == 0 {
+		return true
+	}
 
-    } 
+	locker.Lock()
+	defer locker.Unlock()
 
-    locker.Lock() 
-    defer locker.Unlock() 
+	curTimeIndex := uint(time.Now().Unix() / 30)
 
-    curTimeIndex := uint(time.Now().Unix() / 30) 
+	prevIndexVal, _ := callCount[curTimeIndex-1]
 
-    prevIndexVal, _ := callCount[curTimeIndex-1] 
+	if prevIndexVal >= allowedCount {
+		return false
+	}
 
-    if prevIndexVal >= allowedCount { 
+	if curIndexVal, ok := callCount[curTimeIndex]; !ok {
+		callCount[curTimeIndex] = 1
 
-        return false 
+		return true
+	}
 
-    } 
+	if (curIndexVal + prevIndexVal) >= allowedCount {
+		return false
+	}
 
-    if curIndexVal, ok := callCount[curTimeIndex]; !ok { 
-        callCount[curTimeIndex] = 1 
+	callCount[curTimeIndex]++
 
-        return true 
-    } 
+	return true
+}
 
-    if (curIndexVal + prevIndexVal) >= allowedCount {
-        return false 
-    } 
+func main() {
+	fmt.Printf("%v\n", isCallAllowed(3)) // true
 
-    callCount[curTimeIndex]++ 
+	fmt.Printf("%v\n", isCallAllowed(3)) // true
 
-    return true 
-} 
+	fmt.Printf("%v\n", isCallAllowed(3)) // true
 
-func main() { 
+	// time.Sleep(time.Second*30)
 
-    fmt.Printf("%v\n", isCallAllowed(3)) // true 
+	fmt.Printf("%v\n", isCallAllowed(3)) // false
 
-    fmt.Printf("%v\n", isCallAllowed(3)) // true 
+	fmt.Printf("%v\n", isCallAllowed(3)) // false
 
-    fmt.Printf("%v\n", isCallAllowed(3)) // true 
+}
 
-    // time.Sleep(time.Second*30) 
-
-    fmt.Printf("%v\n", isCallAllowed(3)) // false 
-
-    fmt.Printf("%v\n", isCallAllowed(3)) // false 
-
-} 
-
- // 9. Нарисовать архитектуру приложения, что будет происходить на бэкенде при нажатии кнопки пользователем
- // В задаче есть 2 внешние сущности, эндпоинт, возвращающий пользователей и банк
+// 9. Нарисовать архитектуру приложения, что будет происходить на бэкенде при нажатии кнопки пользователем
+// В задаче есть 2 внешние сущности, эндпоинт, возвращающий пользователей и банк
