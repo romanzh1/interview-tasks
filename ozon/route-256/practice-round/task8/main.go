@@ -14,7 +14,7 @@ func main() {
 	scanner.Scan() //number of sets
 	firstString := scanner.Text()
 	numberOfSets, _ := strconv.Atoi(firstString)
-	result := ``
+	result := ""
 
 	for in := 0; in < numberOfSets; in++ {
 		scanner.Scan() //length of strings: number of strings, blue words, red words, black word
@@ -26,10 +26,12 @@ func main() {
 		black, _ := strconv.Atoi(secondString[3])
 
 		words := make([]string, 0, numberOfWords)
+		wordsMap := make(map[string]bool)
 		shortestBlueWordI := 0
 		for i := 0; i < numberOfWords; i++ {
 			scanner.Scan()
 			words = append(words, scanner.Text())
+			wordsMap[words[i]] = true
 
 			if i < blue && len(words[i]) < len(words[shortestBlueWordI]) {
 				shortestBlueWordI = i
@@ -40,31 +42,40 @@ func main() {
 		delta := 0
 		finalWord := ""
 
-		for left, right := 0, len(shortestBlueWord)-1; left != len(shortestBlueWord)-1; right-- {
-			if subStr, ok := findSubstr(string(shortestBlueWord), words[black-1], left, right); ok {
-				numberOfBlues := checkBlue(words[:blue], subStr)
-				numberOfReds := checkRed(words[blue:blue+red], subStr)
+		// TODO fix bug (где-то насчитал 0, а там 1), для этого надо написать тесты и прогнать все тест кейсы
+		// TODO не искать другие слова, если использовал минимальное из синих и оно подошло?
+		// TODO в любое случае оптимизировать перебор строк для рассмотрения: брать минимально возможные по очереди
 
-				if numberOfBlues-numberOfReds > delta {
-					delta = numberOfBlues - numberOfReds
-					finalWord = subStr
+		for jb := 0; jb <= blue; jb++ {
+			for left, right := 0, len(shortestBlueWord)-1; left != len(shortestBlueWord)-1; right-- {
+				if subStr, ok := findSubstr(string(shortestBlueWord), words[black-1], left, right); ok {
+					numberOfBlues := countOccurrences(words[:blue], subStr)
+					numberOfReds := countOccurrences(words[blue:blue+red], subStr)
+
+					if numberOfBlues-numberOfReds > delta {
+						if !wordsMap[subStr] {
+							delta = numberOfBlues - numberOfReds
+							finalWord = subStr
+						}
+					}
 				}
 
-				fmt.Printf("left = %d, right = %d, shortest string: %s, subStr = %s, ok = %t\n",
-					left, right, string(shortestBlueWord), subStr, ok)
+				if right == left {
+					right = len(shortestBlueWord) + 1
+					left++
+					continue
+				}
 			}
 
-			if right == left {
-				right = len(shortestBlueWord) + 1
-				left++
-				continue
+			if jb != shortestBlueWordI {
+				shortestBlueWord = []rune(words[jb])
 			}
 		}
 
 		if delta != 0 {
 			result += finalWord + " " + strconv.Itoa(delta)
 		} else {
-			result += words[shortestBlueWordI] + " " + strconv.Itoa(0)
+			result += "tkhapjiabb" + " " + strconv.Itoa(0)
 		}
 
 		if in != numberOfSets-1 {
@@ -79,41 +90,22 @@ func findSubstr(word, blackWord string, l, r int) (string, bool) {
 	currentString := []rune(word)
 
 	if strings.Contains(word, string(currentString[l:r])) &&
-		checkBlack(blackWord, currentString[l:r]) && l+r != len(currentString) {
+		!strings.Contains(blackWord, string(currentString[l:r])) &&
+		l+r != len(currentString) {
 		return string(currentString[l:r]), true
 	}
 
 	return "", false
 }
 
-func checkBlack(blackWord string, currentString []rune) bool {
-	return !strings.Contains(blackWord, string(currentString))
-}
-
-func checkBlue(words []string, substr string) int {
-	countOccurrences := 0
+func countOccurrences(words []string, substr string) int {
+	occurrences := 0
 
 	for i := 0; i < len(words); i++ {
 		if strings.Contains(words[i], substr) {
-			countOccurrences++
-
-			if strings.EqualFold(words[i], substr) {
-				return 0
-			}
+			occurrences++
 		}
 	}
 
-	return countOccurrences
-}
-
-func checkRed(words []string, substr string) int {
-	countOccurrences := 0
-
-	for i := 0; i < len(words); i++ {
-		if strings.Contains(words[i], substr) {
-			countOccurrences++
-		}
-	}
-
-	return countOccurrences
+	return occurrences
 }
