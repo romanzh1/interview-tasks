@@ -1,0 +1,784 @@
+100
+8 1 1 7
+aaaaabbbaa
+ababbbbaba
+abbbbbabba
+bbbbaaabba
+aababbaabb
+bbbaaabbaa
+aaabbabbab
+bbaaaaaaba
+9 6 2 9
+babbbbbaba
+abaabababb
+bbaaabaaba
+baaaabbbaa
+abbbaaaaaa
+bbbaaaabba
+abbabaaaab
+abaababbbb
+aabbbbabba
+5 1 2 4
+aaabababab
+bbaababbbb
+aaabbbbaba
+aabababaaa
+bababbbabb
+3 1 1 3
+bbbabaabba
+aabaabbaba
+bbbbbbaabb
+5 1 3 5
+aabbaabbab
+bbababbbab
+aabababbaa
+abbababbbb
+aabbabbbba
+10 4 2 10
+abbaabbbab
+aabbbaabbb
+bbbabaaaab
+bbabababaa
+baabbaabba
+baabbaabaa
+aaabbabaaa
+aabababbbb
+bbbbbabaaa
+aabaababba
+8 3 4 8
+abbabbbbab
+bbbbbbbaab
+abababbaaa
+abbbababab
+bababbaaaa
+baabbbabaa
+aaaabbbbab
+bbabbaaaba
+3 1 1 3
+abaabbbaaa
+aabaabbbab
+baaabababb
+5 1 2 4
+bbbabbbbbb
+bbabbabbba
+abbabbaabb
+aabbaaaaaa
+bbbbbbbaba
+10 3 4 9
+aaaaabbbba
+abaabbbbbb
+aaaabbabaa
+bbbaabbbbb
+abbbaababb
+abbababaab
+aabaaabbba
+ababbaaaab
+babaabbabb
+aabbaabbbb
+10 3 4 8
+abaababbab
+bbaaabbbaa
+bababbaaaa
+aabbbbbaba
+aabbaaabaa
+abbabbbaba
+baaababaaa
+aabaaababa
+baabbbbabb
+aaaaaaaaba
+7 2 2 5
+baabbbbbbb
+ababbabaab
+baabbbbabb
+abbababbbb
+babbabbaaa
+bbaaaabbab
+aaaaaababa
+7 3 1 6
+aabaaaabaa
+bababbbabb
+aaababaaaa
+abaabaaaaa
+bbabaabbbb
+abbabababa
+abbbbbaabb
+4 2 1 4
+aabbbbbaaa
+abbababbbb
+baabbabbba
+ababbbbaab
+9 2 5 8
+baabbbabab
+ababaaabaa
+babaaabaaa
+baaaaabbbb
+bbbbaaabab
+abbaaababa
+babaabbaaa
+aaaaabbaaa
+abbaabaaba
+5 3 1 5
+aabbbababb
+abaababbab
+aabbbbabaa
+abaabbaaab
+abbababbaa
+5 1 2 4
+aaaabbaaba
+aaabaaaaab
+babbbbbbba
+bbbbaaaabb
+bbbaabaaab
+4 2 1 4
+aaababbaab
+bababbbbbb
+bbabbababb
+bababaabbb
+8 4 1 6
+babbaabbaa
+ababbbaabb
+aabaaaabaa
+bbaababbab
+babbbbbbba
+bbaaabbaba
+baababbbbb
+bbaabbbabb
+5 1 1 4
+babaaaaaba
+bbaaababba
+bbabaababa
+bbaababbba
+bbababaaba
+6 3 2 6
+abbbaaaaba
+abbababaaa
+bbaaabaaab
+baabaababa
+baaabaabaa
+abaaaabaaa
+10 2 1 7
+abbbbbbbba
+ababbbbaab
+bbbbaaabba
+abbbabbaba
+baababbbba
+aaababbbab
+aaababbaba
+bbabbbbbba
+bababbabbb
+ababbabbab
+10 7 2 10
+abbabbbaab
+abbbabbaab
+aaabbaaaab
+aaababaabb
+aaaabababb
+abababbbab
+abbabaaabb
+babbaabbbb
+baabbaaabb
+baabbabaab
+3 1 1 3
+baabbbaaba
+abbaaaabaa
+abbbbbaabb
+5 2 2 5
+babbbbaaba
+babaaaaaab
+bbbbbabaab
+baaabaaabb
+baaabbabaa
+8 2 4 7
+aaabaaaaab
+aabbaaaaaa
+bbaabaaabb
+ababbbaaaa
+babbaaabbb
+aaabaabbbb
+abbbbbbbbb
+baabaaaaab
+10 2 3 8
+bbbaabbbba
+baababbaab
+abbaabbaaa
+bbbabbbaba
+abaabbbbab
+abbaabbbab
+babbaababa
+baabbbabba
+bbabaaabbb
+abaabababa
+10 1 4 6
+aababbaabb
+aaaabaaaaa
+abbbabbbab
+bbbaabaaba
+abaaaababb
+aaabababbb
+aaaaaababb
+ababbaaaab
+abbabbbaaa
+abaaaaaabb
+10 5 1 10
+aaabbbabab
+abaabababb
+abaaabaabb
+babbbaabbb
+bbaaabbaaa
+abbbbbaabb
+abbbabaaab
+aababbbaba
+babaabaaba
+babbabaabb
+9 4 1 9
+bbabababba
+abaaabbbbb
+aabbabbbba
+aabbabbbbb
+baaaabaaba
+ababbaaabb
+baaabbaaba
+baaaabbabb
+bbaabaaaab
+5 1 1 3
+baabaaabaa
+bababaaaba
+bbaabaabbb
+babaabbbba
+aaababbaaa
+10 7 1 10
+aabaabbaaa
+abbbbabaab
+bbabbaabab
+aaabababab
+aabbbbaabb
+aabbaabbaa
+aaaabbbbab
+aaaaabbabb
+bbbaabbaab
+bbbabababb
+4 1 2 4
+babbabbaba
+baababbbbb
+ababbbbbab
+bbbabbbaab
+8 2 4 8
+aaabaababa
+bbaabbbbaa
+aabbbbbbbb
+bbbabababb
+baabbbabaa
+bbbabbaaba
+abbaababab
+abaabaabbb
+7 4 1 7
+ababbabaaa
+aabbbabbab
+babababbba
+abbbaaabaa
+bbbbbabbaa
+baaaabbaba
+aaaabbbbba
+5 3 1 5
+ababbaabab
+abaabbabab
+bbbabbabaa
+babaabbbab
+aaababbbaa
+8 1 4 8
+baaabbbbba
+aaaaaaaaba
+abbaabbaab
+aabaaabaab
+abbbbbbbbb
+babbaaaaab
+aaaabbaaba
+abaabaabba
+9 2 2 7
+bbabbabbba
+aababaaaba
+bbbaaaaaaa
+aaaabbbabb
+bbabbbabbb
+bbaaaaabbb
+ababaabaab
+babbaaaaba
+aabaababbb
+6 3 1 6
+bbbbaaaabb
+baaaaaabbb
+bbbabbbbbb
+aaaaaabbba
+aababaaaaa
+bbbaaaabbb
+6 3 2 6
+ababbbbaba
+bbbbbbbbba
+bbabbbbbab
+bbbabbaaab
+aaabababaa
+aabbbbbaaa
+3 1 1 3
+bbbabbbbba
+bbbbaaaaba
+bababbabba
+4 1 1 3
+abbabaaabb
+bbbbbaaaaa
+abbaaaaaaa
+aaaaaaaabb
+7 3 2 6
+baaaabbabb
+bbaabaabab
+aabababbaa
+aaababbabb
+bbbaabbbbb
+bbaabbaaba
+babaabbaba
+8 4 2 7
+aaabbabaaa
+bbabababbb
+ababbbbbbb
+bbbbbbabbb
+bababbbbaa
+bbaabaabaa
+baaabbbbaa
+bbbbababab
+8 3 4 8
+aaaabbbabb
+abbabaabbb
+baabbaaaaa
+abababbbbb
+bbaabbbbba
+aabbabaaab
+babbababaa
+abbbaabbab
+8 4 3 8
+aabbbabbba
+bbbaaabbaa
+bbbbbabbbb
+abababaabb
+babbaaabaa
+bbbaabbaab
+bbaaaaabab
+abbaaababb
+9 1 6 9
+bbbbbbbbab
+ababaabbab
+aaaaaaabba
+babbaaaaab
+baababbaaa
+abbabbabab
+baabbbbbaa
+abbbaababa
+bbbbabaaab
+3 1 1 3
+aababaaabb
+baaaaababb
+abaabbaabb
+4 1 1 3
+bababbaaab
+bbabbbaaaa
+aaaabaabaa
+abbaabbbba
+6 1 3 5
+abbbbaaabb
+abbbbabbbb
+babbaaaabb
+bbabbbbaba
+aaabaabbbb
+aaaabaabbb
+5 1 1 4
+babbaaabba
+baaaabbabb
+aaabaabbbb
+baababaabb
+ababaabaab
+3 1 1 3
+bbbbbababb
+aaabbbaaab
+babbbbbaab
+8 2 3 6
+abbbaababb
+baaaabaabb
+baaaabbbab
+babbabbaaa
+babbbbaaab
+aabbbbabab
+bbbabababa
+aabaaaabaa
+10 8 1 10
+baabaaabbb
+aabbbbabab
+bbaaaabaaa
+abaababbba
+bbbaaaabab
+ababbabaaa
+bbbaababbb
+aababbbbab
+abaabbbabb
+abbbbaaaba
+9 2 1 8
+babbbabbaa
+ababaabbab
+babbaaabaa
+babaabbabb
+abaaababab
+baaaaaabbb
+aababbabbb
+aaabbbbaba
+aabbaaabbb
+7 1 1 6
+baaaaabbba
+abbaaababb
+aaaabbbbba
+bbbabbbbbb
+babbbaabab
+aaabababbb
+bbabbababa
+10 5 1 10
+bbbabaaaab
+abaabababa
+bbbaaabbab
+abaabbbaba
+ababaabbba
+aaababbbba
+abaabbabab
+abbbabaabb
+abaabbbbbb
+aabbababaa
+7 1 1 6
+aababbaaaa
+bbbbbabbba
+abbabbabab
+babbaaabbb
+aaaababbab
+abbaabbbaa
+abbbbbaaab
+5 2 2 5
+aabbabbabb
+aaababbbbb
+bbabbbaaaa
+baabbbbbab
+abbaabbbba
+3 1 1 3
+bbabbbbaaa
+aaaabaabaa
+bbaaabbbaa
+4 2 1 4
+abbbababbb
+aabaabbbab
+abbabaabbb
+ababbbbaaa
+8 1 5 8
+bbaabbabab
+baabbbbaaa
+abbaaaaaba
+ababbababa
+baaaababab
+bbbbbbbaaa
+baabbbaaaa
+ababbaaaaa
+5 1 3 5
+babaaaabab
+abbbbabbab
+aaababbbab
+aabbaabaab
+ababbbaaaa
+4 1 2 4
+abbaaaaaab
+abbbbbaaaa
+bbaaabaaaa
+abbaaabbab
+10 7 2 10
+babbbbbbbb
+babaabbbaa
+baabbaabaa
+abaaaaabab
+bababbbbaa
+abaaaaaaab
+bbababaaab
+aaabbabaab
+aaaabbbbba
+abaaabbbba
+8 3 2 8
+bbabbabbaa
+bbabbabaab
+aabbaaaaba
+baabbbbaaa
+abbbbbbbab
+ababbabbaa
+baabaababa
+bbaabbabaa
+10 6 3 10
+babbabbbbb
+aaababaabb
+bbaaabbaab
+abaaaabbaa
+aababaabba
+bbaabbabab
+aaaaaaaabb
+abbabaabbb
+aaaababbaa
+abbbbbbbbb
+9 6 2 9
+baabbabaab
+baababaaab
+abaabababb
+bbabbbabaa
+abaaabbbaa
+bbaababbaa
+aaabbaaaab
+bababaabab
+aaaaababaa
+10 1 8 10
+babbbababa
+abbabaaaab
+baababaaaa
+ababbbabab
+bbbaabaabb
+abaaaabaaa
+babbaaaaab
+babaababab
+abbbababbb
+abbaabbaaa
+8 4 1 8
+aaabbbbaba
+abbbabaaab
+aabbbbbabb
+aaaabababa
+abaabbbbab
+babaaabaab
+aabbabbabb
+aaaaaababa
+4 2 1 4
+babbaaaabb
+aabbbababa
+bbabbaabba
+aabababaaa
+10 2 1 4
+aaabbaabbb
+bbbaaabbba
+abbaaaaaaa
+bababaabab
+ababbaaabb
+bbbbabaaab
+bbbbbbbaab
+aababababa
+aaaababbab
+aaaabbbbab
+10 4 2 9
+bbbaababab
+aaaaabbaaa
+abbbaabbaa
+baabaaaaaa
+baaaaabbab
+bbabababbb
+abaabbbaab
+baabbbabba
+abaaaaabbb
+aaabaababb
+10 6 2 10
+bbbbbbbbab
+aaabaaabbb
+bbbaababab
+abbbabbbba
+baaabbabaa
+ababaaaaab
+bbaababbaa
+bbabababaa
+bbababbbab
+abaababbbb
+10 3 4 9
+bbbbabbbba
+aabaaabbaa
+babaaabbba
+bbbbababab
+aabaaabbba
+ababbaaaaa
+bbabbaaaab
+aaaababaaa
+baababbabb
+baababaaba
+9 1 7 9
+aabbbbabba
+aaaabaabaa
+baaabbabbb
+aabababbaa
+abaaabaaaa
+abaaaaaaaa
+aabaabbbaa
+aabaaaaaab
+bbbbbababb
+5 1 3 5
+baabaabbbb
+abbbbbbabb
+aaabababba
+abbbbabbab
+bbbabbbaaa
+9 5 2 9
+aabbaabbbb
+bbbbbbaabb
+aaaabaabab
+abbababbaa
+babbababab
+babbbaabaa
+aababbaaab
+abbabbbbaa
+aaababaaba
+6 2 2 5
+aaaaabaaaa
+aaabababab
+aaabaaaaba
+bbbbbababb
+babbabbaba
+aaaababaab
+5 2 1 5
+bbabbaaabb
+aabbbbabba
+abbbabbaaa
+bbbaabbbab
+abaaabaaab
+4 1 2 4
+aaabbbbbab
+aaaabbabba
+bbabbababb
+bbabbaabaa
+9 4 4 9
+babababaab
+baaaaaaaaa
+babbbabbba
+baabababba
+ababaabbab
+abbbbabaab
+bababaabbb
+abaabaaaaa
+aabbabbbbb
+8 2 2 7
+babbababba
+aababbbbbb
+baabbabbba
+bbabbbbbbb
+ababababab
+bbababaaab
+baabbbbbba
+bbabaabbab
+9 1 3 8
+abbbbababb
+bbbbaaabaa
+abbbaabbba
+abbbbabbba
+ababbaaaab
+bbbaabbaab
+aaabaaabab
+aabaabbaab
+baaabbbbbb
+4 2 1 4
+abaabaaaba
+bababbbaaa
+babbbbbbab
+bbbabbaaab
+6 3 2 6
+bbaababbaa
+abaaaabbbb
+babbbbabaa
+babbabbaba
+aabaaababb
+bababbabbb
+4 1 1 4
+abbababbbb
+aabaababba
+aabaaababa
+babaababba
+10 4 3 9
+aabbbaaaab
+babbbabbaa
+aaaabaaabb
+bbbabaabba
+babbbabbba
+bbbaaaabbb
+aaaaabbbab
+baabbbaaba
+aabaaabbba
+aabbbababb
+3 1 1 3
+aababababb
+baaaabbbaa
+bbababbabb
+7 1 1 3
+babaaabaaa
+bbbaabbbba
+baaabbabaa
+abbbaabbaa
+baaabbbbbb
+bbbbabaaaa
+baabbaabba
+5 1 1 4
+baabaabaab
+aaaaaababa
+aabaaabbab
+babbbbabbb
+aaaababbbb
+8 1 5 7
+abbbababba
+aababaabaa
+bbbababbba
+aaaabbbbbb
+abbaaaabaa
+aabababbba
+aabaaaabbb
+abbbbababb
+5 1 3 5
+aaaababbab
+bbbbbbaaba
+bbbaabbbba
+ababaaabbb
+aaababbbab
+3 1 1 3
+baababaaba
+baaabaaaab
+bbbaaaaaba
+9 3 1 8
+abbabbbbba
+bbbbbbbbab
+abaabbaaab
+bbbbbbbbbb
+baabaabbab
+aaaabbabab
+aababbaaaa
+abbabababb
+babaaaaaab
+4 1 2 4
+bbaabababa
+babaaaaabb
+bbabbaabba
+bbbbabbbab
+9 2 1 9
+bbaaabbaab
+aabaabaaab
+bbbababbbb
+baabaabbab
+bbbababbaa
+abbabbbbbb
+babbbbabbb
+abbabaabaa
+aaaaaaaabb
+4 1 2 4
+ababbaabbb
+baaabaaabb
+bbabaabbba
+bbababbaab
+8 2 1 5
+abaaaabbab
+aaabbabaab
+aaabaaabaa
+abaabababa
+aaabaaabab
+bababaabbb
+bbabbaabaa
+aababbabab
+4 1 2 4
+baababbbbb
+bbabbabbba
+baabaaaaba
+bbbababbaa
