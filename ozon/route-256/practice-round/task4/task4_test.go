@@ -11,7 +11,7 @@ import (
 )
 
 func TestCalculateString(t *testing.T) {
-	for i := 1; i <= 20; i++ {
+	for i := 1; i <= 50; i++ {
 		inputFile := "test_files/" + strconv.Itoa(i)
 		outputFile := "test_files/" + strconv.Itoa(i) + ".a"
 
@@ -25,7 +25,7 @@ func TestCalculateString(t *testing.T) {
 		reader := bufio.NewReader(input)
 		result := calculateString(reader)
 
-		require.Equal(t, strings.Split(string(expectedOutput), "\n"), strings.Split(result, "\n"),
+		require.Equal(t, strings.Split(string(expectedOutput), " \n"), strings.Split(result, "\n"),
 			"Test case %d", i)
 	}
 }

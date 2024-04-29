@@ -25,6 +25,8 @@ func calculateString(reader *bufio.Reader) string {
 	t, _ := strconv.Atoi(strings.TrimSpace(line))
 
 	results := make([]string, t)
+	builder := strings.Builder{}
+
 	for i := 0; i < t; i++ {
 		line, _ = reader.ReadString('\n')
 		n, _ := strconv.Atoi(strings.TrimSpace(line))
@@ -44,28 +46,22 @@ func calculateString(reader *bufio.Reader) string {
 		})
 
 		ranks := make([]int, n)
-		// Начинаем с первого места
 		currentRank := 1
 
 		for j := 0; j < n; j++ {
-			if j == 0 {
-				ranks[times[j].Index] = currentRank
-			} else {
-				if times[j].Time-times[j-1].Time <= 1 {
-					ranks[times[j].Index] = currentRank
-				} else {
-					currentRank = j + 1
-					ranks[times[j].Index] = currentRank
-				}
+			if j > 0 && times[j].Time-times[j-1].Time > 1 {
+				currentRank = j + 1
 			}
+
+			ranks[times[j].Index] = currentRank
 		}
 
-		var result string
 		for _, rank := range ranks {
-			result += strconv.Itoa(rank) + " "
+			builder.WriteString(strconv.Itoa(rank) + " ")
 		}
-
-		results[i] = result
+		builder.WriteString("\n")
+		results[i] = strings.TrimSpace(builder.String())
+		builder.Reset()
 	}
 
 	return strings.Join(results, "\n") + "\n"
