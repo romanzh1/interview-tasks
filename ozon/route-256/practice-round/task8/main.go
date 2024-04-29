@@ -59,7 +59,7 @@ func calculateString(scanner *bufio.Scanner) string {
 
 			for left, right := 0, len(shortestBlueWord)-1; left != len(shortestBlueWord); right-- {
 				if _, ok := verifiedWordParts[string(shortestBlueWord[left:right])]; !ok {
-					if subStr, ok := findSubstr(string(shortestBlueWord), words[black-1], left, right); ok {
+					if subStr, ok := findSubstr(shortestBlueWord, words[black-1], left, right); ok {
 						numberOfBlues := countOccurrences(words[:blue], subStr)
 						numberOfReds := countOccurrences(words[blue:blue+red], subStr)
 
@@ -96,13 +96,10 @@ func calculateString(scanner *bufio.Scanner) string {
 	return result
 }
 
-func findSubstr(word, blackWord string, l, r int) (string, bool) {
-	currentString := []rune(word)
-
-	if strings.Contains(word, string(currentString[l:r])) &&
-		!strings.Contains(blackWord, string(currentString[l:r])) &&
-		l+r != len(currentString) {
-		return string(currentString[l:r]), true
+func findSubstr(word []rune, blackWord string, l, r int) (string, bool) {
+	if strings.Contains(string(word), string(word[l:r])) &&
+		!strings.Contains(blackWord, string(word[l:r])) {
+		return string(word[l:r]), true
 	}
 
 	return "", false
