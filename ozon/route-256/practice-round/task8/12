@@ -1,0 +1,76 @@
+10
+3 1 1 3
+bba
+aabbaa
+aaa
+10 4 3 10
+baaba
+aabbb
+aabb
+abaaab
+bbaab
+bbab
+babb
+aaab
+baab
+b
+10 2 3 9
+aaabb
+a
+bb
+baaaaa
+ab
+aba
+abbbaa
+b
+bba
+babaaa
+9 2 1 7
+aaa
+abbaaa
+bbab
+aab
+b
+bab
+a
+aa
+ab
+8 4 3 8
+abbab
+bbab
+abb
+aaaab
+aaa
+aa
+abbba
+aaaa
+4 1 2 4
+baa
+ababa
+aba
+bbb
+7 5 1 7
+babbbb
+ab
+aaba
+bab
+abaab
+b
+a
+4 1 1 4
+a
+aaab
+b
+baa
+3 1 1 3
+babaaa
+abba
+babbaa
+7 2 3 6
+a
+babb
+abb
+aaab
+abba
+babba
+bbabb
