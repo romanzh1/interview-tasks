@@ -11,6 +11,12 @@ import (
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
+	result := calculateString(scanner)
+
+	fmt.Println(result)
+}
+
+func calculateString(scanner *bufio.Scanner) string {
 	scanner.Scan() //number of sets
 	firstString := scanner.Text()
 	numberOfSets, _ := strconv.Atoi(firstString)
@@ -38,37 +44,41 @@ func main() {
 			}
 		}
 
+		verifiedWordParts := make(map[string]bool)
 		shortestBlueWord := []rune(words[shortestBlueWordI])
 		delta := 0
 		finalWord := ""
 
-		// TODO fix bug (где-то насчитал 0, а там 1), для этого надо написать тесты и прогнать все тест кейсы
 		// TODO не искать другие слова, если использовал минимальное из синих и оно подошло?
 		// TODO в любое случае оптимизировать перебор строк для рассмотрения: брать минимально возможные по очереди
 
 		for jb := 0; jb <= blue; jb++ {
-			for left, right := 0, len(shortestBlueWord)-1; left != len(shortestBlueWord)-1; right-- {
-				if subStr, ok := findSubstr(string(shortestBlueWord), words[black-1], left, right); ok {
-					numberOfBlues := countOccurrences(words[:blue], subStr)
-					numberOfReds := countOccurrences(words[blue:blue+red], subStr)
+			if jb != shortestBlueWordI {
+				shortestBlueWord = []rune(words[jb])
+			}
 
-					if numberOfBlues-numberOfReds > delta {
-						if !wordsMap[subStr] {
-							delta = numberOfBlues - numberOfReds
-							finalWord = subStr
+			for left, right := 0, len(shortestBlueWord)-1; left != len(shortestBlueWord); right-- {
+				if _, ok := verifiedWordParts[string(shortestBlueWord[left:right])]; !ok {
+					if subStr, ok := findSubstr(string(shortestBlueWord), words[black-1], left, right); ok {
+						numberOfBlues := countOccurrences(words[:blue], subStr)
+						numberOfReds := countOccurrences(words[blue:blue+red], subStr)
+
+						if numberOfBlues-numberOfReds > delta {
+							if !wordsMap[subStr] {
+								delta = numberOfBlues - numberOfReds
+								finalWord = subStr
+							}
 						}
 					}
 				}
+
+				verifiedWordParts[string(shortestBlueWord[left:right])] = true
 
 				if right == left {
 					right = len(shortestBlueWord) + 1
 					left++
 					continue
 				}
-			}
-
-			if jb != shortestBlueWordI {
-				shortestBlueWord = []rune(words[jb])
 			}
 		}
 
@@ -83,7 +93,7 @@ func main() {
 		}
 	}
 
-	fmt.Println(result)
+	return result
 }
 
 func findSubstr(word, blackWord string, l, r int) (string, bool) {
