@@ -10,9 +10,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func BenchmarkCalculateString(b *testing.B) {
+	for i := 70; i <= 75; i++ {
+		inputFile := strconv.Itoa(i)
+
+		file, err := os.Open(inputFile)
+		if err != nil {
+			b.Fatalf("failed opening input file %s: %s", inputFile, err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+
+		b.Run("testCase"+strconv.Itoa(i), func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				file.Seek(0, 0)
+				scanner = bufio.NewScanner(file)
+				calculateString(scanner)
+			}
+		})
+
+		file.Close() // Закрываем файл после завершения бенчмарка
+	}
+}
+
 func TestCalculateString(t *testing.T) {
 	for i := 1; i <= 75; i++ {
-		inputFile := strconv.Itoa(i) + ""
+		inputFile := strconv.Itoa(i)
 		outputFile := strconv.Itoa(i) + ".a"
 
 		input, err := os.Open(inputFile)
