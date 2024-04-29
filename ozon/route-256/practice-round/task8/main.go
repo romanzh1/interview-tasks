@@ -48,15 +48,15 @@ func calculateString(scanner *bufio.Scanner) string {
 		delta := 0
 		finalWord := ""
 
-		// TODO не искать другие слова, если использовал минимальное из синих и оно подошло?
-		// TODO в любое случае оптимизировать перебор строк для рассмотрения: брать минимально возможные по очереди
-
 		for jb := 0; jb < blue; jb++ {
 			shortestBlueWord := []rune(words[jb])
 
 			for left, right := 0, len(shortestBlueWord)-1; left != len(shortestBlueWord); right-- {
 				if _, ok := verifiedWordParts[string(shortestBlueWord[left:right])]; !ok {
-					if subStr, ok := findSubstr(shortestBlueWord, words[black-1], left, right); ok {
+					subStr := string(shortestBlueWord[left:right])
+
+					if strings.Contains(words[jb], subStr) &&
+						!strings.Contains(words[black-1], subStr) {
 						numberOfBlues := countOccurrences(words[:blue], subStr)
 						numberOfReds := countOccurrences(words[blue:blue+red], subStr)
 
@@ -91,15 +91,6 @@ func calculateString(scanner *bufio.Scanner) string {
 	}
 
 	return result
-}
-
-func findSubstr(word []rune, blackWord string, l, r int) (string, bool) {
-	if strings.Contains(string(word), string(word[l:r])) &&
-		!strings.Contains(blackWord, string(word[l:r])) {
-		return string(word[l:r]), true
-	}
-
-	return "", false
 }
 
 func countOccurrences(words []string, substr string) int {
