@@ -30,7 +30,7 @@ func BenchmarkCalculateString(b *testing.B) {
 			}
 		})
 
-		file.Close() // Закрываем файл после завершения бенчмарка
+		file.Close()
 	}
 }
 
