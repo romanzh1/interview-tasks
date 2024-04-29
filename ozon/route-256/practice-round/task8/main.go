@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -33,29 +34,25 @@ func calculateString(scanner *bufio.Scanner) string {
 
 		words := make([]string, 0, numberOfWords)
 		wordsMap := make(map[string]bool)
-		shortestBlueWordI := 0
 		for i := 0; i < numberOfWords; i++ {
 			scanner.Scan()
 			words = append(words, scanner.Text())
 			wordsMap[words[i]] = true
-
-			if i < blue && len(words[i]) < len(words[shortestBlueWordI]) {
-				shortestBlueWordI = i
-			}
 		}
 
+		sort.Slice(words[:blue], func(i, j int) bool {
+			return len(words[i]) < len(words[j])
+		})
+
 		verifiedWordParts := make(map[string]bool)
-		shortestBlueWord := []rune(words[shortestBlueWordI])
 		delta := 0
 		finalWord := ""
 
 		// TODO не искать другие слова, если использовал минимальное из синих и оно подошло?
 		// TODO в любое случае оптимизировать перебор строк для рассмотрения: брать минимально возможные по очереди
 
-		for jb := 0; jb <= blue; jb++ {
-			if jb != shortestBlueWordI {
-				shortestBlueWord = []rune(words[jb])
-			}
+		for jb := 0; jb < blue; jb++ {
+			shortestBlueWord := []rune(words[jb])
 
 			for left, right := 0, len(shortestBlueWord)-1; left != len(shortestBlueWord); right-- {
 				if _, ok := verifiedWordParts[string(shortestBlueWord[left:right])]; !ok {

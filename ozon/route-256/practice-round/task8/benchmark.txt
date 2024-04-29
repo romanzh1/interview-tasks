@@ -1,0 +1,41 @@
+Без оптимизации сортировки по длине строк
+goos: linux
+goarch: amd64
+pkg: task8
+cpu: 12th Gen Intel(R) Core(TM) i7-12700H
+BenchmarkCalculateString/testCase70-20                 1        1655523707 ns/op
+BenchmarkCalculateString/testCase71-20                 2         602983614 ns/op
+BenchmarkCalculateString/testCase72-20                 1        1518804031 ns/op
+BenchmarkCalculateString/testCase73-20                 1        3309787641 ns/op
+BenchmarkCalculateString/testCase74-20                 4         292860461 ns/op
+BenchmarkCalculateString/testCase75-20                 1        2379539342 ns/op
+PASS
+ok      task8   45.586s
+
+С оптимизацией сортировки перебора синих строк по их длине в отдельном слайсе
+goos: linux
+goarch: amd64
+pkg: task8
+cpu: 12th Gen Intel(R) Core(TM) i7-12700H
+BenchmarkCalculateString/testCase70-20                 1        1545584414 ns/op
+BenchmarkCalculateString/testCase71-20                 2         533514968 ns/op
+BenchmarkCalculateString/testCase72-20                 1        1379406744 ns/op
+BenchmarkCalculateString/testCase73-20                 1        3048465933 ns/op
+BenchmarkCalculateString/testCase74-20                 4         272147537 ns/op
+BenchmarkCalculateString/testCase75-20                 1        2281071829 ns/op
+PASS
+ok      task8   12.233s
+
+С оптимизацией сортировки перебора синих строк по их длине в том же слайсе
+goos: linux
+goarch: amd64
+pkg: task8
+cpu: 12th Gen Intel(R) Core(TM) i7-12700H
+BenchmarkCalculateString/testCase70-20                 1        1008417999 ns/op
+BenchmarkCalculateString/testCase71-20                 4         314358783 ns/op
+BenchmarkCalculateString/testCase72-20                 2         566542840 ns/op
+BenchmarkCalculateString/testCase73-20                 1        1319847683 ns/op
+BenchmarkCalculateString/testCase74-20                 6         178747216 ns/op
+BenchmarkCalculateString/testCase75-20                 2         942768850 ns/op
+PASS
+ok      task8   28.774s
