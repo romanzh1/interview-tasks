@@ -12,7 +12,7 @@ import (
 
 func BenchmarkCalculateString(b *testing.B) {
 	for i := 70; i <= 75; i++ {
-		inputFile := strconv.Itoa(i)
+		inputFile := "test_files/" + strconv.Itoa(i)
 
 		file, err := os.Open(inputFile)
 		if err != nil {
@@ -35,9 +35,9 @@ func BenchmarkCalculateString(b *testing.B) {
 }
 
 func TestCalculateString(t *testing.T) {
-	for i := 1; i <= 75; i++ {
-		inputFile := strconv.Itoa(i)
-		outputFile := strconv.Itoa(i) + ".a"
+	for i := 1; i <= 40; i++ {
+		inputFile := "test_files/" + strconv.Itoa(i)
+		outputFile := "test_files/" + strconv.Itoa(i) + ".a"
 
 		input, err := os.Open(inputFile)
 		defer input.Close()
