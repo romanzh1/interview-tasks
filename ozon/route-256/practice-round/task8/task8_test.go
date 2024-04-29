@@ -11,7 +11,7 @@ import (
 )
 
 func TestCalculateString(t *testing.T) {
-	for i := 1; i <= 20; i++ {
+	for i := 1; i <= 75; i++ {
 		inputFile := strconv.Itoa(i) + ""
 		outputFile := strconv.Itoa(i) + ".a"
 
