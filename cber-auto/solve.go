@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 )
 
@@ -34,7 +35,7 @@ func printText(data []string) {
 // Не закрываем канал после записи.
 // Правильнее сделать например так:
 
-func (s *Service) ProcessData(timeoutCtx context.Context, r io.Reader) error {
+func (s *Service) ProcessData2(timeoutCtx context.Context, r io.Reader) error {
 	errCh := make(chan error, 1) // Используем буферизированный канал
 
 	go func() {

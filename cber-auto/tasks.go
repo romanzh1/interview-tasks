@@ -95,6 +95,13 @@ func main4() {
 // Чтобы контролировать процесс, мы добавили таймаут выполнения ф-ии через context.
 // Какие недостатки кода ниже?
 
+type Service struct {
+}
+
+func (s *Service) processDataInternal(r io.Reader) error {
+	return nil
+}
+
 func (s *Service) ProcessData(timeoutCtx context.Context, r io.Reader) error {
 	errCh := make(chan error)
 
@@ -152,15 +159,12 @@ func isCallAllowed(allowedCount uint) bool {
 
 func main() {
 	fmt.Printf("%v\n", isCallAllowed(3)) // true
-
 	fmt.Printf("%v\n", isCallAllowed(3)) // true
-
 	fmt.Printf("%v\n", isCallAllowed(3)) // true
 
 	// time.Sleep(time.Second*30)
 
 	fmt.Printf("%v\n", isCallAllowed(3)) // false
-
 	fmt.Printf("%v\n", isCallAllowed(3)) // false
 
 }
