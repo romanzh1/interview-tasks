@@ -16,7 +16,7 @@ func setLinkHome(link *string) {
 	*link = "http://home"
 }
 
-func main() {
+func main1() {
 	link := "http://other"
 
 	setLinkHome(&link)
@@ -26,7 +26,7 @@ func main() {
 
 // 2. Будет ли напечатан “ok” ?
 
-func main() {
+func main2() {
 	defer func() {
 		recover()
 	}()
@@ -47,7 +47,7 @@ func main() {
 
 // Но это не так, исправь код
 
-func printText(data []string) {
+func printText3(data []string) {
 	for _, v := range data {
 		go func() {
 			fmt.Println(v)
@@ -59,7 +59,7 @@ func printText(data []string) {
 
 }
 
-func main() {
+func main3() {
 	data := []string{"one", "two", "three"}
 
 	printText(data)
@@ -71,7 +71,7 @@ func main() {
 
 var callCounter uint
 
-func main() {
+func main4() {
 	wg := sync.WaitGroup{}
 
 	wg.Add(10000)
@@ -91,10 +91,8 @@ func main() {
 }
 
 // 5.
-
 // Есть функция processDataInternal, которая может выполняться неопределенно долго.
 // Чтобы контролировать процесс, мы добавили таймаут выполнения ф-ии через context.
-
 // Какие недостатки кода ниже?
 
 func (s *Service) ProcessData(timeoutCtx context.Context, r io.Reader) error {
@@ -114,7 +112,6 @@ func (s *Service) ProcessData(timeoutCtx context.Context, r io.Reader) error {
 
 // 6.
 // Опиши, что делает функция isCallAllowed?
-
 // TODO разобрать что же она всё таки делает
 
 var callCount = make(map[uint]uint)
@@ -137,7 +134,8 @@ func isCallAllowed(allowedCount uint) bool {
 		return false
 	}
 
-	if curIndexVal, ok := callCount[curTimeIndex]; !ok {
+	curIndexVal, ok := uint(0), false
+	if curIndexVal, ok = callCount[curTimeIndex]; !ok {
 		callCount[curTimeIndex] = 1
 
 		return true
