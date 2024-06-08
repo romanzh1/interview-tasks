@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  cart:
+    container_name: cart
+    image: cart
+    build:
+      context: ../../first/cart
+      dockerfile: ./build/Dockerfile
+    ports:
+      - "8082:8082" # HTTP

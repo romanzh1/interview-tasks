@@ -1,0 +1,21 @@
+@startuml
+
+actor User as u
+collections Cart as c
+database CartStorage as cs
+collections ProductService as p
+
+u -> c : POST /user/<user_id>/cart/<sku_id>\n\t- count uint16
+activate c
+
+c -> p : /get_product\n- sku uint32\n- token string
+activate p
+  p -> c : \nResponse:\n- name\n- price
+deactivate p
+c -> c : validate product exists
+c -> cs : cart.AddItem()
+c -> u : 200 OK
+
+deactivate c
+
+@enduml
