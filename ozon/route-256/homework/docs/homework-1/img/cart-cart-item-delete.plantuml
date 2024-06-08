@@ -1,0 +1,13 @@
+@startuml
+
+actor User as u
+collections Cart as c
+database CartStorage as cs
+
+u -> c : DELETE /user/<user_id>/cart/<sku_id>
+activate c
+c -> cs : cart.DeleteItem(userID, skuID)
+c -> u : 204 No Content
+deactivate c
+
+@enduml
