@@ -5,7 +5,7 @@ services:
     container_name: cart
     image: cart
     build:
-      context: ../../first/cart
+      context: ./cart
       dockerfile: ./build/Dockerfile
     ports:
       - "8082:8082" # HTTP

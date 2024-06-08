@@ -1,0 +1,70 @@
+run:
+  timeout: '5m'
+  build-tags:
+    - all
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - decorder
+    - dogsled
+    - dupword
+    - durationcheck
+    - errcheck
+    - errorlint
+    - exportloopref
+    - forcetypeassert
+    - gci
+    - godot
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - makezero
+    - misspell
+    - nilerr
+    - nilnil
+    - noctx
+    - paralleltest
+    - prealloc
+    - predeclared
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - stylecheck
+    - tenv
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+
+issues:
+  exclude:
+    - '^S1023:' # staticcheck: redundant returns help with http handlers
+    - '^SA3000:' # staticcheck: not required in Go 11.4+
+    - '^G102:' # gosec: to bind to all ifaces
+    - '^G402:' # gosec: some services terminate at the load balancer
+    - '^G401:' # gosec: use crypto/sha1
+    - '^G505:' # gosec: use crypto/sha1
+    - '^G108:' # profiling is available
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
+severity:
+  default-severity: error
