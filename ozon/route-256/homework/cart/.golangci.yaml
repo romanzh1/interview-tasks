@@ -20,24 +20,22 @@ linters:
     - errorlint
     - exportloopref
     - forcetypeassert
-    - gci
     - godot
     - gofmt
-    - gofumpt
     - goheader
-    - goimports
     - gomodguard
     - goprintffuncname
     - gosec
     - gosimple
     - govet
+    - gocyclo
+    - gocognit
     - ineffassign
     - makezero
     - misspell
     - nilerr
     - nilnil
     - noctx
-    - paralleltest
     - prealloc
     - predeclared
     - rowserrcheck
@@ -54,16 +52,13 @@ linters:
     - wastedassign
     - whitespace
 
-issues:
-  exclude:
-    - '^S1023:' # staticcheck: redundant returns help with http handlers
-    - '^SA3000:' # staticcheck: not required in Go 11.4+
-    - '^G102:' # gosec: to bind to all ifaces
-    - '^G402:' # gosec: some services terminate at the load balancer
-    - '^G401:' # gosec: use crypto/sha1
-    - '^G505:' # gosec: use crypto/sha1
-    - '^G108:' # profiling is available
+linters-settings:
+  gocyclo:
+    min-complexity: 10  # alert
+  gocognit:
+    min-complexity: 15  # alert
 
+issues:
   max-issues-per-linter: 0
   max-same-issues: 0
 severity:

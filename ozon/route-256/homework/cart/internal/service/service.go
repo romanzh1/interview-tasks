@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -11,14 +12,14 @@ import (
 //go:generate minimock -i cartRepository -o ./mocks/ -s _mock.go
 //go:generate minimock -i productClient -o ./mocks/ -s _mock.go
 type cartRepository interface {
-	AddItemToUserCart(userID, skuID int64, count uint16) error
-	DeleteItemFromUserCart(userID, skuID int64) error
-	ClearUserCart(userID int64) error
-	ListUserCart(userID int64) ([]models.CartItem, error)
+	AddItemToUserCart(ctx context.Context, cart models.CartRequest) error
+	DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error
+	ClearUserCart(ctx context.Context, userID int64) error
+	ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, error)
 }
 
 type productClient interface {
-	GetProduct(skuID uint32) (*product.Product, error)
+	GetProduct(ctx context.Context, skuID uint32) (*product.Product, error)
 }
 
 type Service struct {
@@ -30,8 +31,8 @@ func NewService(repo cartRepository, productClient productClient) *Service {
 	return &Service{repo: repo, productClient: productClient}
 }
 
-func (s *Service) AddItemToUserCart(userID, skuID int64, count uint16) error {
-	checkProduct, err := s.productClient.GetProduct(uint32(skuID))
+func (s *Service) AddItemToUserCart(ctx context.Context, cart models.CartRequest) error {
+	checkProduct, err := s.productClient.GetProduct(ctx, uint32(cart.SkuID))
 	if err != nil {
 		return fmt.Errorf("failed to get product: %w", err)
 	}
@@ -40,28 +41,28 @@ func (s *Service) AddItemToUserCart(userID, skuID int64, count uint16) error {
 		return fmt.Errorf("product not found")
 	}
 
-	return s.repo.AddItemToUserCart(userID, skuID, count)
+	return s.repo.AddItemToUserCart(ctx, cart)
 }
 
-func (s *Service) DeleteItemFromUserCart(userID, skuID int64) error {
-	return s.repo.DeleteItemFromUserCart(userID, skuID)
+func (s *Service) DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error {
+	return s.repo.DeleteItemFromUserCart(ctx, userID, skuID)
 }
 
-func (s *Service) ClearUserCart(userID int64) error {
-	return s.repo.ClearUserCart(userID)
+func (s *Service) ClearUserCart(ctx context.Context, userID int64) error {
+	return s.repo.ClearUserCart(ctx, userID)
 }
 
-func (s *Service) ListUserCart(userID int64) ([]models.CartItem, uint32, error) {
-	items, err := s.repo.ListUserCart(userID)
+func (s *Service) ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, uint32, error) {
+	items, err := s.repo.ListUserCart(ctx, userID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list cart: %w", err)
 	}
 
-	var cartItems []models.CartItem
-	var totalPrice uint32
+	cartItems := make([]models.CartItem, 0, len(items))
+	totalPrice := uint32(0)
 
 	for _, item := range items {
-		p, err := s.productClient.GetProduct(uint32(item.SkuID))
+		p, err := s.productClient.GetProduct(ctx, uint32(item.SkuID))
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to get p: %w", err)
 		}

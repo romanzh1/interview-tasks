@@ -4,6 +4,4 @@ import (
 	"fmt"
 )
 
-var (
-	CartIsEmpty = fmt.Errorf("cart is empty")
-)
+var ErrCartIsEmpty = fmt.Errorf("cart is empty")

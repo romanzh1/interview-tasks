@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -11,21 +12,15 @@ import (
 )
 
 type cartService interface {
-	AddItemToUserCart(userID, skuID int64, count uint16) error
-	DeleteItemFromUserCart(userID, skuID int64) error
-	ClearUserCart(userID int64) error
-	ListUserCart(userID int64) ([]models.CartItem, uint32, error)
+	AddItemToUserCart(ctx context.Context, cart models.CartRequest) error
+	DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error
+	ClearUserCart(ctx context.Context, userID int64) error
+	ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, uint32, error)
 }
 
 type Handler struct {
 	service  cartService
 	validate *validator.Validate
-}
-
-type CartRequest struct {
-	UserID int64  `json:"user_id" validate:"required,gt=0"`
-	SkuID  int64  `json:"sku_id" validate:"required,gt=0"`
-	Count  uint16 `json:"count" validate:"required,gt=0"`
 }
 
 func NewHandler(service cartService) *Handler {
@@ -74,7 +69,7 @@ func (h *Handler) AddItemToUserCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req := CartRequest{
+	req := models.CartRequest{
 		UserID: userID,
 		SkuID:  skuID,
 	}
@@ -88,7 +83,7 @@ func (h *Handler) AddItemToUserCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.AddItemToUserCart(req.UserID, req.SkuID, req.Count); err != nil {
+	if err := h.service.AddItemToUserCart(r.Context(), req); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -102,7 +97,7 @@ func (h *Handler) DeleteItemFromUserCart(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	req := CartRequest{
+	req := models.CartRequest{
 		UserID: userID,
 		SkuID:  skuID,
 	}
@@ -112,7 +107,7 @@ func (h *Handler) DeleteItemFromUserCart(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.service.DeleteItemFromUserCart(req.UserID, req.SkuID); err != nil {
+	if err := h.service.DeleteItemFromUserCart(r.Context(), req.UserID, req.SkuID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -126,7 +121,7 @@ func (h *Handler) ClearUserCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req := CartRequest{
+	req := models.CartRequest{
 		UserID: userID,
 	}
 
@@ -135,7 +130,7 @@ func (h *Handler) ClearUserCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.ClearUserCart(req.UserID); err != nil {
+	if err := h.service.ClearUserCart(r.Context(), req.UserID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -149,7 +144,7 @@ func (h *Handler) ListUserCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req := CartRequest{
+	req := models.CartRequest{
 		UserID: userID,
 	}
 
@@ -158,7 +153,7 @@ func (h *Handler) ListUserCart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, totalPrice, err := h.service.ListUserCart(req.UserID)
+	items, totalPrice, err := h.service.ListUserCart(r.Context(), req.UserID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"sync"
 
 	"route256/cart/internal/models"
@@ -15,19 +16,19 @@ func NewRepository() *Repository {
 	return &Repository{carts: make(map[int64]map[int64]uint16)}
 }
 
-func (r *Repository) AddItemToUserCart(userID, skuID int64, count uint16) error {
+func (r *Repository) AddItemToUserCart(ctx context.Context, cart models.CartRequest) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.carts[userID] == nil {
-		r.carts[userID] = make(map[int64]uint16)
+	if r.carts[cart.UserID] == nil {
+		r.carts[cart.UserID] = make(map[int64]uint16)
 	}
 
-	r.carts[userID][skuID] += count
+	r.carts[cart.UserID][cart.SkuID] += cart.Count
 
 	return nil
 }
 
-func (r *Repository) DeleteItemFromUserCart(userID, skuID int64) error {
+func (r *Repository) DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -36,7 +37,7 @@ func (r *Repository) DeleteItemFromUserCart(userID, skuID int64) error {
 	return nil
 }
 
-func (r *Repository) ClearUserCart(userID int64) error {
+func (r *Repository) ClearUserCart(ctx context.Context, userID int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -45,16 +46,16 @@ func (r *Repository) ClearUserCart(userID int64) error {
 	return nil
 }
 
-func (r *Repository) ListUserCart(userID int64) ([]models.CartItem, error) {
+func (r *Repository) ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	userCart, exists := r.carts[userID]
 	if !exists || len(userCart) == 0 {
-		return nil, models.CartIsEmpty
+		return nil, models.ErrCartIsEmpty
 	}
 
-	var items []models.CartItem
+	items := make([]models.CartItem, 0, len(userCart))
 	for skuID, count := range userCart {
 		items = append(items,
 			models.CartItem{

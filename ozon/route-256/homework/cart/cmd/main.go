@@ -6,14 +6,15 @@ import (
 	"net/http"
 	"time"
 
-	handler "route256/cart/internal/handler"
+	"route256/cart/cmd/config"
+	"route256/cart/internal/handler"
 	"route256/cart/internal/repository"
 	"route256/cart/internal/service"
 	"route256/cart/pkg/product"
 )
 
 func main() {
-	cfg, err := NewConfig()
+	cfg, err := config.NewConfig()
 	if err != nil {
 		log.Fatalf("failed to parse config: %s", err)
 	}
@@ -32,8 +33,16 @@ func main() {
 	hand.RegisterRoutes(router)
 	loggedMux := handler.LoggingMiddleware(router)
 
+	server := &http.Server{
+		Addr:         ":" + cfg.ServerConfig.Port,
+		Handler:      loggedMux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  15 * time.Second,
+	}
+
 	slog.Info("Starting server", slog.String("port", cfg.ServerConfig.Port))
-	if err := http.ListenAndServe(":"+cfg.ServerConfig.Port, loggedMux); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		slog.Error("Failed to start server", slog.String("error", err.Error()))
 	}
 }
