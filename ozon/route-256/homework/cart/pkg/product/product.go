@@ -2,6 +2,7 @@ package product
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -39,7 +40,7 @@ type ProductRequest struct {
 	SkuID uint32 `json:"sku"`
 }
 
-func (c *Client) GetProduct(skuID uint32) (*Product, error) {
+func (c *Client) GetProduct(ctx context.Context, skuID uint32) (*Product, error) {
 	url := fmt.Sprintf("%s/get_product", c.baseURL)
 
 	requestBody, err := json.Marshal(ProductRequest{
@@ -50,11 +51,15 @@ func (c *Client) GetProduct(skuID uint32) (*Product, error) {
 		return nil, err
 	}
 
-	resp, err := c.client.Post(url, "application/json", bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	defer resp.Body.Close()
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get product: %s", resp.Status)

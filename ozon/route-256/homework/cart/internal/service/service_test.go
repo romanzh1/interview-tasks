@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -27,44 +28,41 @@ func TestService_AddItemToUserCart(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		skuID            int64
-		count            uint16
+		cart             models.CartRequest
 		getProductReturn *product.Product
 		getProductErr    error
 		expectedErr      string
 	}{
 		{
 			name:             "Successful addition",
-			skuID:            1001,
-			count:            2,
+			cart:             models.CartRequest{UserID: 1, SkuID: 1001, Count: 2},
 			getProductReturn: &product.Product{Name: "Product 1", Price: 100},
 			getProductErr:    nil,
 			expectedErr:      "",
 		},
 		{
 			name:             "Product not found",
-			skuID:            1002,
-			count:            1,
+			cart:             models.CartRequest{UserID: 1, SkuID: 1002, Count: 1},
 			getProductReturn: nil,
 			getProductErr:    nil,
 			expectedErr:      "product not found",
 		},
 		{
 			name:             "Product client error",
-			skuID:            1003,
-			count:            1,
+			cart:             models.CartRequest{UserID: 1, SkuID: 1003, Count: 1},
 			getProductReturn: nil,
 			getProductErr:    errors.New("product client error"),
 			expectedErr:      "failed to get product: product client error",
 		},
 	}
 
+	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			productClientMock.GetProductMock.Return(tt.getProductReturn, tt.getProductErr)
 			repoMock.AddItemToUserCartMock.Return(nil)
 
-			err := s.AddItemToUserCart(1, tt.skuID, tt.count)
+			err := s.AddItemToUserCart(ctx, tt.cart)
 			if tt.expectedErr == "" {
 				assert.NoError(t, err)
 			} else {
@@ -80,9 +78,11 @@ func TestService_DeleteItemFromUserCart(t *testing.T) {
 
 	repoMock, _, s := setupMocks(mc)
 
+	ctx := context.Background()
+
 	repoMock.DeleteItemFromUserCartMock.Return(nil)
 
-	err := s.DeleteItemFromUserCart(1, 1001)
+	err := s.DeleteItemFromUserCart(ctx, 1, 1001)
 	assert.NoError(t, err)
 }
 
@@ -91,9 +91,11 @@ func TestService_ClearUserCart(t *testing.T) {
 
 	repoMock, _, s := setupMocks(mc)
 
+	ctx := context.Background()
+
 	repoMock.ClearUserCartMock.Return(nil)
 
-	err := s.ClearUserCart(1)
+	err := s.ClearUserCart(ctx, 1)
 	assert.NoError(t, err)
 }
 
@@ -156,17 +158,18 @@ func TestService_ListUserCart(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repoMock.ListUserCartMock.Return(tt.listUserCartReturn, tt.listUserCartErr)
-			productClientMock.GetProductMock.Set(func(skuID uint32) (p1 *product.Product, err error) {
+			productClientMock.GetProductMock.Set(func(ctx context.Context, skuID uint32) (p1 *product.Product, err error) {
 				if tt.getProductErr != nil {
 					return nil, tt.getProductErr
 				}
 				return tt.getProductReturns[skuID], nil
 			})
 
-			items, totalPrice, err := s.ListUserCart(tt.userID)
+			items, totalPrice, err := s.ListUserCart(ctx, tt.userID)
 			if tt.expectedErr == "" {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedItems, items)
