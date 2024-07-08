@@ -1,0 +1,19 @@
+@startuml
+
+actor User as u
+collections LOMS as l
+database OrdersStorage as os
+
+u -> l : /order/info\n- orderID int64
+activate l
+
+l -> os : order.GetByID()
+alt order exists
+  l -> u : Response 200 OK\n- status string\n- user int64\n- []items{}
+else
+  l -> u : Response 404 Not Found
+end
+
+deactivate l
+
+@enduml

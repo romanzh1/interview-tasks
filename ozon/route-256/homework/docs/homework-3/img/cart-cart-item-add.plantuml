@@ -1,0 +1,32 @@
+@startuml
+
+actor User as u
+collections Cart as c
+database CartStorage as cs
+collections ProductService as p
+collections Order as o
+
+u -> c : /cart/item/add\n- user\n- item{\n\t- user int64\n\t- sku uint32\n\t- count uint16\n}
+activate c
+loop for each item in request
+  c -> p : /get_product\n- sku uint32\n- token string
+  activate p
+  p -> c : \nResponse:\n- name\n- price
+  deactivate p
+  c -> c : validate product exists
+
+  c -> o : /stocs/info\n- sku
+  activate o
+  o -> c : Response:\n- []stockItem{\n\t- count\n}
+  deactivate o
+  c -> c : validate stocks
+  alt stocks enought
+    c -> cs : cart.AddItem()
+    c -> u : 200 OK
+  else
+    c -> u : 412 Failed Precondition (insufficient stocks)
+  end
+end
+deactivate c
+
+@enduml

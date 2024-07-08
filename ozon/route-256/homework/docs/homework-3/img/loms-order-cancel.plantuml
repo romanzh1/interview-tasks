@@ -1,0 +1,16 @@
+@startuml
+
+actor User as u
+collections LOMS as l
+database OrdersStorage as os
+database StocksStorage as ss
+
+u -> l : /order/cancel\n- orderID
+activate l
+
+l -> os : order.GetByOrderID()
+l -> ss : stocks.ReserveCancel()
+l -> os : order.SetStatus(cancelled)
+deactivate l
+
+@enduml

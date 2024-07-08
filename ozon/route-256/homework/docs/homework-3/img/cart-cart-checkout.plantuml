@@ -1,0 +1,16 @@
+@startuml
+
+actor User as u
+collections Cart as c
+database CartStorage as cs
+collections Order as o
+
+u -> c : /cart/checkout\n- user
+activate c
+c -> cs : cart.GetItemsByUserID
+c -> o : /order/create\n- user\n- []item
+c -> cs : cart.DeleteItemsByUserID
+
+deactivate c
+
+@enduml

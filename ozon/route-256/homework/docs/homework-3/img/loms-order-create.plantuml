@@ -1,0 +1,22 @@
+@startuml
+
+actor User as u
+collections LOMS as l
+database OrdersStorage as os
+database StocksStorage as ss
+
+u -> l : /order/create\n- user\n- []item{\n\t- sku int32\n\t- count uint16\n  }
+activate l
+l -> os : order.Create()\n status=new
+l -> ss : stocks.Reserve()
+
+alt Reserve success
+  l -> os : order.SetStatus(awaiting_payment)
+  l -> u : OK: Response:\n  orderID
+else
+  l -> os : order.SetStatus(failed)
+  l -> u : 412 Failed Precondition
+end
+deactivate l
+
+@enduml

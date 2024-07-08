@@ -1,0 +1,15 @@
+@startuml
+
+actor User as u
+collections LOMS as l
+database StocksStorage as ss
+
+u -> l : /stok/info\n- sku uint32
+activate l
+
+l -> ss : stocks.GetBySKU()
+
+l -> u : Response\n- count uint64
+deactivate l
+
+@enduml

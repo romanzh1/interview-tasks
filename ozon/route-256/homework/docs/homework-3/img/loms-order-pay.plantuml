@@ -1,0 +1,15 @@
+@startuml
+
+actor User as u
+collections LOMS as l
+database OrdersStorage as os
+database StocksStorage as ss
+
+u -> l : /order/pay\n- orderID
+activate l
+l -> ss : stocks.ReserveRemove()
+l -> os : order.SetStatus(payed)
+
+deactivate l
+
+@enduml
