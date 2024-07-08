@@ -59,29 +59,52 @@
 				
 				<option value="file1">route256/cart/cmd/main.go (0.0%)</option>
 				
-				<option value="file2">route256/cart/internal/handler/handler.go (39.2%)</option>
+				<option value="file2">route256/cart/internal/handler/handler.go (33.0%)</option>
 				
 				<option value="file3">route256/cart/internal/handler/middleware.go (0.0%)</option>
 				
-				<option value="file4">route256/cart/internal/repository/repository.go (100.0%)</option>
+				<option value="file4">route256/cart/internal/models/models.go (0.0%)</option>
 				
-				<option value="file5">route256/cart/internal/service/mocks/cart_repository_mock.go (26.7%)</option>
+				<option value="file5">route256/cart/internal/repository/repository.go (100.0%)</option>
 				
-				<option value="file6">route256/cart/internal/service/mocks/product_client_mock.go (34.0%)</option>
+				<option value="file6">route256/cart/internal/service/mocks/cart_repository_mock.go (26.7%)</option>
 				
-				<option value="file7">route256/cart/internal/service/service.go (96.0%)</option>
+				<option value="file7">route256/cart/internal/service/mocks/loms_client_mock.go (15.1%)</option>
 				
-				<option value="file8">route256/cart/pkg/product/product.go (70.0%)</option>
+				<option value="file8">route256/cart/internal/service/mocks/product_client_mock.go (34.0%)</option>
 				
-				<option value="file9">route256/cart/tests/handler/setup.go (85.7%)</option>
+				<option value="file9">route256/cart/internal/service/service.go (65.3%)</option>
+				
+				<option value="file10">route256/cart/pkg/errgroup/errgroup.go (100.0%)</option>
+				
+				<option value="file11">route256/cart/pkg/loms/config.go (0.0%)</option>
+				
+				<option value="file12">route256/cart/pkg/loms/loms.go (0.0%)</option>
+				
+				<option value="file13">route256/cart/pkg/product/product.go (68.0%)</option>
+				
+				<option value="file14">route256/cart/proto/loms.pb.go (4.3%)</option>
+				
+				<option value="file15">route256/cart/proto/loms_grpc.pb.go (0.0%)</option>
+				
+				<option value="file16">route256/cart/tests/handler/setup.go (86.4%)</option>
 				
 				</select>
 			</div>
 			<div id="legend">
 				<span>not tracked</span>
 			
-				<span class="cov0">not covered</span>
-				<span class="cov8">covered</span>
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
 			
 			</div>
 		</div>
@@ -101,11 +124,17 @@ type ProductClient struct {
         Host    string `env:"PRODUCT_HOST,required"`
         Token   string `env:"PRODUCT_TOKEN,required"`
         Timeout string `env:"PRODUCT_TIMEOUT,required"`
+        Rps     int    `env:"PRODUCT_RPS,required"`
+}
+
+type LomsClient struct {
+        Host string `env:"LOMS_HOST,required"`
 }
 
 type Config struct {
         ServerConfig  ServerConfig
         ProductClient ProductClient
+        LomsClient    LomsClient
 }
 
 func NewConfig() (Config, error) <span class="cov8" title="1">{
@@ -122,15 +151,20 @@ func NewConfig() (Config, error) <span class="cov8" title="1">{
 		<pre class="file" id="file1" style="display: none">package main
 
 import (
+        "context"
+        "errors"
         "log"
         "log/slog"
         "net/http"
+        "os"
+        "os/signal"
         "time"
 
         "route256/cart/cmd/config"
         "route256/cart/internal/handler"
         "route256/cart/internal/repository"
         "route256/cart/internal/service"
+        "route256/cart/pkg/loms"
         "route256/cart/pkg/product"
 )
 
@@ -140,16 +174,21 @@ func main() <span class="cov0" title="0">{
                 log.Fatalf("failed to parse config: %s", err)
         }</span>
 
-        <span class="cov0" title="0">productClientTimeout, err := time.ParseDuration(cfg.ProductClient.Timeout + "s")
+        <span class="cov0" title="0">router := http.NewServeMux()
+
+        productClient, err := product.NewClient(cfg.ProductClient)
         if err != nil </span><span class="cov0" title="0">{
                 log.Fatalf("failed to parse product client timeout: %s", err)
         }</span>
 
-        <span class="cov0" title="0">router := http.NewServeMux()
-        productClient := product.NewClient(cfg.ProductClient.Host, cfg.ProductClient.Token, productClientTimeout)
+        <span class="cov0" title="0">lomsClient := loms.NewClient(cfg.LomsClient.Host)
+        err = lomsClient.Run()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("failed to start loms client: %s", err)
+        }</span>
 
-        repo := repository.NewRepository()
-        serv := service.NewService(repo, productClient)
+        <span class="cov0" title="0">repo := repository.NewRepository()
+        serv := service.NewService(repo, productClient, lomsClient)
         hand := handler.NewHandler(serv)
         hand.RegisterRoutes(router)
         loggedMux := handler.LoggingMiddleware(router)
@@ -162,10 +201,26 @@ func main() <span class="cov0" title="0">{
                 IdleTimeout:  15 * time.Second,
         }
 
-        slog.Info("Starting server", slog.String("port", cfg.ServerConfig.Port))
-        if err := server.ListenAndServe(); err != nil </span><span class="cov0" title="0">{
-                slog.Error("Failed to start server", slog.String("error", err.Error()))
+        stop := make(chan os.Signal, 1)
+        signal.Notify(stop, os.Interrupt)
+
+        go func() </span><span class="cov0" title="0">{
+                slog.Info("Starting server", slog.String("port", cfg.ServerConfig.Port))
+                if err := server.ListenAndServe(); err != nil &amp;&amp; !errors.Is(err, http.ErrServerClosed) </span><span class="cov0" title="0">{
+                        slog.Error("Failed to start server", slog.String("error", err.Error()))
+                }</span>
+        }()
+
+        <span class="cov0" title="0">&lt;-stop
+
+        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
+
+        if err := server.Shutdown(ctx); err != nil </span><span class="cov0" title="0">{
+                slog.Error("Server forced to shutdown", slog.String("error", err.Error()))
         }</span>
+
+        <span class="cov0" title="0">slog.Info("Server exiting")</span>
 }
 </pre>
 		
@@ -187,6 +242,7 @@ type cartService interface {
         DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error
         ClearUserCart(ctx context.Context, userID int64) error
         ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, uint32, error)
+        CreateOrder(ctx context.Context, userID int64) (int64, error)
 }
 
 type Handler struct {
@@ -203,6 +259,7 @@ func NewHandler(service cartService) *Handler <span class="cov8" title="1">{
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) <span class="cov8" title="1">{
         mux.HandleFunc("POST /user/{userID}/cart/{skuID}", h.AddItemToUserCart)
+        mux.HandleFunc("POST /cart/checkout", h.CreateOrder)
         mux.HandleFunc("DELETE /user/{userID}/cart/{skuID}", h.DeleteItemFromUserCart)
         mux.HandleFunc("DELETE /user/{userID}/cart", h.ClearUserCart)
         mux.HandleFunc("GET /user/{userID}/cart", h.ListUserCart)
@@ -350,6 +407,39 @@ func (h *Handler) ListUserCart(w http.ResponseWriter, r *http.Request) <span cla
 
         <span class="cov8" title="1">w.WriteHeader(http.StatusOK)</span>
 }
+
+func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) <span class="cov0" title="0">{
+        req := models.CartRequest{}
+
+        if err := json.NewDecoder(r.Body).Decode(&amp;req); err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "invalid request body", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if err := h.validate.StructPartial(req, "UserID"); err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "invalid input", http.StatusBadRequest)
+                return
+        }</span>
+
+        <span class="cov0" title="0">orderID, err := h.service.CreateOrder(r.Context(), req.UserID)
+        if err != nil </span><span class="cov0" title="0">{
+                http.Error(w, err.Error(), http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">response := struct {
+                OrderID int64 `json:"order_id"`
+        }{
+                OrderID: orderID,
+        }
+
+        if err := json.NewEncoder(w).Encode(response); err != nil </span><span class="cov0" title="0">{
+                http.Error(w, "failed to encode response", http.StatusInternalServerError)
+                return
+        }</span>
+
+        <span class="cov0" title="0">w.WriteHeader(http.StatusOK)</span>
+}
 </pre>
 		
 		<pre class="file" id="file3" style="display: none">package handler
@@ -395,11 +485,50 @@ func LoggingMiddleware(next http.Handler) http.Handler <span class="cov0" title=
 }
 </pre>
 		
-		<pre class="file" id="file4" style="display: none">package repository
+		<pre class="file" id="file4" style="display: none">package models
+
+import (
+        "route256/cart/pkg/loms"
+)
+
+type CartItem struct {
+        SkuID int64
+        Name  string
+        Count uint16
+        Price uint32
+}
+
+type CartRequest struct {
+        UserID int64  `json:"user_id" validate:"required,gt=0"`
+        SkuID  int64  `json:"sku_id" validate:"required,gt=0"`
+        Count  uint16 `json:"count" validate:"required,gt=0"`
+}
+
+func CartItemToCartRequest(ci CartItem) CartRequest <span class="cov0" title="0">{
+        return CartRequest{
+                SkuID: ci.SkuID,
+                Count: ci.Count,
+        }
+}</span>
+
+func CartRequestToCartOrder(cr []CartRequest) []loms.OrderItem <span class="cov0" title="0">{
+        items := make([]loms.OrderItem, 0, len(cr))
+
+        for _, item := range cr </span><span class="cov0" title="0">{
+                items = append(items, loms.OrderItem{
+                        SkuID:    uint64(item.SkuID),
+                        Quantity: uint32(item.Count),
+                })
+        }</span>
+
+        <span class="cov0" title="0">return items</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package repository
 
 import (
         "context"
-        "fmt"
         "sync"
 
         "route256/cart/internal/models"
@@ -410,36 +539,32 @@ type Repository struct {
         mu    sync.Mutex
 }
 
-func NewRepository() *Repository <span class="cov8" title="1">{
+func NewRepository() *Repository <span class="cov6" title="4">{
         return &amp;Repository{carts: make(map[int64]map[int64]uint16)}
 }</span>
 
-func (r *Repository) AddItemToUserCart(ctx context.Context, cart models.CartRequest) error <span class="cov8" title="1">{
+func (r *Repository) AddItemToUserCart(ctx context.Context, cart models.CartRequest) error <span class="cov10" title="9">{
         r.mu.Lock()
         defer r.mu.Unlock()
-        if r.carts[cart.UserID] == nil </span><span class="cov8" title="1">{
+        if r.carts[cart.UserID] == nil </span><span class="cov8" title="7">{
                 r.carts[cart.UserID] = make(map[int64]uint16)
         }</span>
 
-        <span class="cov8" title="1">r.carts[cart.UserID][cart.SkuID] += cart.Count
+        <span class="cov10" title="9">r.carts[cart.UserID][cart.SkuID] += cart.Count
 
         return nil</span>
 }
 
-func (r *Repository) DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error <span class="cov8" title="1">{
+func (r *Repository) DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error <span class="cov1" title="1">{
         r.mu.Lock()
         defer r.mu.Unlock()
 
-        fmt.Println("DeleteItemFromUserCart", userID, skuID)
-        fmt.Println(r.carts)
         delete(r.carts[userID], skuID)
-
-        fmt.Println("\nsdsd", r.carts[userID])
 
         return nil
 }</span>
 
-func (r *Repository) ClearUserCart(ctx context.Context, userID int64) error <span class="cov8" title="1">{
+func (r *Repository) ClearUserCart(ctx context.Context, userID int64) error <span class="cov1" title="1">{
         r.mu.Lock()
         defer r.mu.Unlock()
 
@@ -448,17 +573,17 @@ func (r *Repository) ClearUserCart(ctx context.Context, userID int64) error <spa
         return nil
 }</span>
 
-func (r *Repository) ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, error) <span class="cov8" title="1">{
+func (r *Repository) ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, error) <span class="cov7" title="5">{
         r.mu.Lock()
         defer r.mu.Unlock()
 
         userCart, exists := r.carts[userID]
-        if !exists || len(userCart) == 0 </span><span class="cov8" title="1">{
-                return nil, models.ErrCartIsEmpty
+        if !exists || len(userCart) == 0 </span><span class="cov5" title="3">{
+                return nil, nil
         }</span>
 
-        <span class="cov8" title="1">items := make([]models.CartItem, 0, len(userCart))
-        for skuID, count := range userCart </span><span class="cov8" title="1">{
+        <span class="cov3" title="2">items := make([]models.CartItem, 0, len(userCart))
+        for skuID, count := range userCart </span><span class="cov5" title="3">{
                 items = append(items,
                         models.CartItem{
                                 SkuID: skuID,
@@ -466,11 +591,11 @@ func (r *Repository) ListUserCart(ctx context.Context, userID int64) ([]models.C
                         })
         }</span>
 
-        <span class="cov8" title="1">return items, nil</span>
+        <span class="cov3" title="2">return items, nil</span>
 }
 </pre>
 		
-		<pre class="file" id="file5" style="display: none">// Code generated by http://github.com/gojuno/minimock (v3.3.12). DO NOT EDIT.
+		<pre class="file" id="file6" style="display: none">// Code generated by http://github.com/gojuno/minimock (v3.3.12). DO NOT EDIT.
 
 package mocks
 
@@ -478,11 +603,10 @@ package mocks
 
 import (
         "context"
+        "route256/cart/internal/models"
         "sync"
         mm_atomic "sync/atomic"
         mm_time "time"
-
-        "route256/cart/internal/models"
 
         "github.com/gojuno/minimock/v3"
 )
@@ -518,14 +642,14 @@ type CartRepositoryMock struct {
 }
 
 // NewCartRepositoryMock returns a mock for service.cartRepository
-func NewCartRepositoryMock(t minimock.Tester) *CartRepositoryMock <span class="cov8" title="1">{
+func NewCartRepositoryMock(t minimock.Tester) *CartRepositoryMock <span class="cov6" title="8">{
         m := &amp;CartRepositoryMock{t: t}
 
-        if controller, ok := t.(minimock.MockController); ok </span><span class="cov8" title="1">{
+        if controller, ok := t.(minimock.MockController); ok </span><span class="cov6" title="8">{
                 controller.RegisterMocker(m)
         }</span>
 
-        <span class="cov8" title="1">m.AddItemToUserCartMock = mCartRepositoryMockAddItemToUserCart{mock: m}
+        <span class="cov6" title="8">m.AddItemToUserCartMock = mCartRepositoryMockAddItemToUserCart{mock: m}
         m.AddItemToUserCartMock.callArgs = []*CartRepositoryMockAddItemToUserCartParams{}
 
         m.ClearUserCartMock = mCartRepositoryMockClearUserCart{mock: m}
@@ -670,15 +794,15 @@ func (mmAddItemToUserCart *mCartRepositoryMockAddItemToUserCart) Inspect(f func(
 }
 
 // Return sets up results that will be returned by cartRepository.AddItemToUserCart
-func (mmAddItemToUserCart *mCartRepositoryMockAddItemToUserCart) Return(err error) *CartRepositoryMock <span class="cov8" title="1">{
+func (mmAddItemToUserCart *mCartRepositoryMockAddItemToUserCart) Return(err error) *CartRepositoryMock <span class="cov1" title="1">{
         if mmAddItemToUserCart.mock.funcAddItemToUserCart != nil </span><span class="cov0" title="0">{
                 mmAddItemToUserCart.mock.t.Fatalf("CartRepositoryMock.AddItemToUserCart mock is already set by Set")
         }</span>
 
-        <span class="cov8" title="1">if mmAddItemToUserCart.defaultExpectation == nil </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if mmAddItemToUserCart.defaultExpectation == nil </span><span class="cov1" title="1">{
                 mmAddItemToUserCart.defaultExpectation = &amp;CartRepositoryMockAddItemToUserCartExpectation{mock: mmAddItemToUserCart.mock}
         }</span>
-        <span class="cov8" title="1">mmAddItemToUserCart.defaultExpectation.results = &amp;CartRepositoryMockAddItemToUserCartResults{err}
+        <span class="cov1" title="1">mmAddItemToUserCart.defaultExpectation.results = &amp;CartRepositoryMockAddItemToUserCartResults{err}
         return mmAddItemToUserCart.mock</span>
 }
 
@@ -726,19 +850,19 @@ func (mmAddItemToUserCart *mCartRepositoryMockAddItemToUserCart) Times(n uint64)
         return mmAddItemToUserCart</span>
 }
 
-func (mmAddItemToUserCart *mCartRepositoryMockAddItemToUserCart) invocationsDone() bool <span class="cov8" title="1">{
-        if len(mmAddItemToUserCart.expectations) == 0 &amp;&amp; mmAddItemToUserCart.defaultExpectation == nil &amp;&amp; mmAddItemToUserCart.mock.funcAddItemToUserCart == nil </span><span class="cov8" title="1">{
+func (mmAddItemToUserCart *mCartRepositoryMockAddItemToUserCart) invocationsDone() bool <span class="cov6" title="8">{
+        if len(mmAddItemToUserCart.expectations) == 0 &amp;&amp; mmAddItemToUserCart.defaultExpectation == nil &amp;&amp; mmAddItemToUserCart.mock.funcAddItemToUserCart == nil </span><span class="cov6" title="7">{
                 return true
         }</span>
 
-        <span class="cov8" title="1">totalInvocations := mm_atomic.LoadUint64(&amp;mmAddItemToUserCart.mock.afterAddItemToUserCartCounter)
+        <span class="cov1" title="1">totalInvocations := mm_atomic.LoadUint64(&amp;mmAddItemToUserCart.mock.afterAddItemToUserCartCounter)
         expectedInvocations := mm_atomic.LoadUint64(&amp;mmAddItemToUserCart.expectedInvocations)
 
         return totalInvocations &gt; 0 &amp;&amp; (expectedInvocations == 0 || expectedInvocations == totalInvocations)</span>
 }
 
 // AddItemToUserCart implements service.cartRepository
-func (mmAddItemToUserCart *CartRepositoryMock) AddItemToUserCart(ctx context.Context, cart models.CartRequest) (err error) <span class="cov8" title="1">{
+func (mmAddItemToUserCart *CartRepositoryMock) AddItemToUserCart(ctx context.Context, cart models.CartRequest) (err error) <span class="cov1" title="1">{
         mm_atomic.AddUint64(&amp;mmAddItemToUserCart.beforeAddItemToUserCartCounter, 1)
         defer mm_atomic.AddUint64(&amp;mmAddItemToUserCart.afterAddItemToUserCartCounter, 1)
 
@@ -746,7 +870,7 @@ func (mmAddItemToUserCart *CartRepositoryMock) AddItemToUserCart(ctx context.Con
                 mmAddItemToUserCart.inspectFuncAddItemToUserCart(ctx, cart)
         }</span>
 
-        <span class="cov8" title="1">mm_params := CartRepositoryMockAddItemToUserCartParams{ctx, cart}
+        <span class="cov1" title="1">mm_params := CartRepositoryMockAddItemToUserCartParams{ctx, cart}
 
         // Record call args
         mmAddItemToUserCart.AddItemToUserCartMock.mutex.Lock()
@@ -760,7 +884,7 @@ func (mmAddItemToUserCart *CartRepositoryMock) AddItemToUserCart(ctx context.Con
                 }</span>
         }
 
-        <span class="cov8" title="1">if mmAddItemToUserCart.AddItemToUserCartMock.defaultExpectation != nil </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if mmAddItemToUserCart.AddItemToUserCartMock.defaultExpectation != nil </span><span class="cov1" title="1">{
                 mm_atomic.AddUint64(&amp;mmAddItemToUserCart.AddItemToUserCartMock.defaultExpectation.Counter, 1)
                 mm_want := mmAddItemToUserCart.AddItemToUserCartMock.defaultExpectation.params
                 mm_want_ptrs := mmAddItemToUserCart.AddItemToUserCartMock.defaultExpectation.paramPtrs
@@ -777,15 +901,15 @@ func (mmAddItemToUserCart *CartRepositoryMock) AddItemToUserCart(ctx context.Con
                                 mmAddItemToUserCart.t.Errorf("CartRepositoryMock.AddItemToUserCart got unexpected parameter cart, want: %#v, got: %#v%s\n", *mm_want_ptrs.cart, mm_got.cart, minimock.Diff(*mm_want_ptrs.cart, mm_got.cart))
                         }</span>
 
-                } else<span class="cov8" title="1"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
+                } else<span class="cov1" title="1"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
                         mmAddItemToUserCart.t.Errorf("CartRepositoryMock.AddItemToUserCart got unexpected parameters, want: %#v, got: %#v%s\n", *mm_want, mm_got, minimock.Diff(*mm_want, mm_got))
                 }</span>
 
-                <span class="cov8" title="1">mm_results := mmAddItemToUserCart.AddItemToUserCartMock.defaultExpectation.results
+                <span class="cov1" title="1">mm_results := mmAddItemToUserCart.AddItemToUserCartMock.defaultExpectation.results
                 if mm_results == nil </span><span class="cov0" title="0">{
                         mmAddItemToUserCart.t.Fatal("No results are set for the CartRepositoryMock.AddItemToUserCart")
                 }</span>
-                <span class="cov8" title="1">return (*mm_results).err</span>
+                <span class="cov1" title="1">return (*mm_results).err</span>
         }
         <span class="cov0" title="0">if mmAddItemToUserCart.funcAddItemToUserCart != nil </span><span class="cov0" title="0">{
                 return mmAddItemToUserCart.funcAddItemToUserCart(ctx, cart)
@@ -819,19 +943,19 @@ func (mmAddItemToUserCart *mCartRepositoryMockAddItemToUserCart) Calls() []*Cart
 
 // MinimockAddItemToUserCartDone returns true if the count of the AddItemToUserCart invocations corresponds
 // the number of defined expectations
-func (m *CartRepositoryMock) MinimockAddItemToUserCartDone() bool <span class="cov8" title="1">{
+func (m *CartRepositoryMock) MinimockAddItemToUserCartDone() bool <span class="cov6" title="8">{
         if m.AddItemToUserCartMock.optional </span><span class="cov0" title="0">{
                 // Optional methods provide '0 or more' call count restriction.
                 return true
         }</span>
 
-        <span class="cov8" title="1">for _, e := range m.AddItemToUserCartMock.expectations </span><span class="cov0" title="0">{
+        <span class="cov6" title="8">for _, e := range m.AddItemToUserCartMock.expectations </span><span class="cov0" title="0">{
                 if mm_atomic.LoadUint64(&amp;e.Counter) &lt; 1 </span><span class="cov0" title="0">{
                         return false
                 }</span>
         }
 
-        <span class="cov8" title="1">return m.AddItemToUserCartMock.invocationsDone()</span>
+        <span class="cov6" title="8">return m.AddItemToUserCartMock.invocationsDone()</span>
 }
 
 // MinimockAddItemToUserCartInspect logs each unmet expectation
@@ -990,15 +1114,15 @@ func (mmClearUserCart *mCartRepositoryMockClearUserCart) Inspect(f func(ctx cont
 }
 
 // Return sets up results that will be returned by cartRepository.ClearUserCart
-func (mmClearUserCart *mCartRepositoryMockClearUserCart) Return(err error) *CartRepositoryMock <span class="cov8" title="1">{
+func (mmClearUserCart *mCartRepositoryMockClearUserCart) Return(err error) *CartRepositoryMock <span class="cov1" title="1">{
         if mmClearUserCart.mock.funcClearUserCart != nil </span><span class="cov0" title="0">{
                 mmClearUserCart.mock.t.Fatalf("CartRepositoryMock.ClearUserCart mock is already set by Set")
         }</span>
 
-        <span class="cov8" title="1">if mmClearUserCart.defaultExpectation == nil </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if mmClearUserCart.defaultExpectation == nil </span><span class="cov1" title="1">{
                 mmClearUserCart.defaultExpectation = &amp;CartRepositoryMockClearUserCartExpectation{mock: mmClearUserCart.mock}
         }</span>
-        <span class="cov8" title="1">mmClearUserCart.defaultExpectation.results = &amp;CartRepositoryMockClearUserCartResults{err}
+        <span class="cov1" title="1">mmClearUserCart.defaultExpectation.results = &amp;CartRepositoryMockClearUserCartResults{err}
         return mmClearUserCart.mock</span>
 }
 
@@ -1046,19 +1170,19 @@ func (mmClearUserCart *mCartRepositoryMockClearUserCart) Times(n uint64) *mCartR
         return mmClearUserCart</span>
 }
 
-func (mmClearUserCart *mCartRepositoryMockClearUserCart) invocationsDone() bool <span class="cov8" title="1">{
-        if len(mmClearUserCart.expectations) == 0 &amp;&amp; mmClearUserCart.defaultExpectation == nil &amp;&amp; mmClearUserCart.mock.funcClearUserCart == nil </span><span class="cov8" title="1">{
+func (mmClearUserCart *mCartRepositoryMockClearUserCart) invocationsDone() bool <span class="cov6" title="8">{
+        if len(mmClearUserCart.expectations) == 0 &amp;&amp; mmClearUserCart.defaultExpectation == nil &amp;&amp; mmClearUserCart.mock.funcClearUserCart == nil </span><span class="cov6" title="7">{
                 return true
         }</span>
 
-        <span class="cov8" title="1">totalInvocations := mm_atomic.LoadUint64(&amp;mmClearUserCart.mock.afterClearUserCartCounter)
+        <span class="cov1" title="1">totalInvocations := mm_atomic.LoadUint64(&amp;mmClearUserCart.mock.afterClearUserCartCounter)
         expectedInvocations := mm_atomic.LoadUint64(&amp;mmClearUserCart.expectedInvocations)
 
         return totalInvocations &gt; 0 &amp;&amp; (expectedInvocations == 0 || expectedInvocations == totalInvocations)</span>
 }
 
 // ClearUserCart implements service.cartRepository
-func (mmClearUserCart *CartRepositoryMock) ClearUserCart(ctx context.Context, userID int64) (err error) <span class="cov8" title="1">{
+func (mmClearUserCart *CartRepositoryMock) ClearUserCart(ctx context.Context, userID int64) (err error) <span class="cov1" title="1">{
         mm_atomic.AddUint64(&amp;mmClearUserCart.beforeClearUserCartCounter, 1)
         defer mm_atomic.AddUint64(&amp;mmClearUserCart.afterClearUserCartCounter, 1)
 
@@ -1066,7 +1190,7 @@ func (mmClearUserCart *CartRepositoryMock) ClearUserCart(ctx context.Context, us
                 mmClearUserCart.inspectFuncClearUserCart(ctx, userID)
         }</span>
 
-        <span class="cov8" title="1">mm_params := CartRepositoryMockClearUserCartParams{ctx, userID}
+        <span class="cov1" title="1">mm_params := CartRepositoryMockClearUserCartParams{ctx, userID}
 
         // Record call args
         mmClearUserCart.ClearUserCartMock.mutex.Lock()
@@ -1080,7 +1204,7 @@ func (mmClearUserCart *CartRepositoryMock) ClearUserCart(ctx context.Context, us
                 }</span>
         }
 
-        <span class="cov8" title="1">if mmClearUserCart.ClearUserCartMock.defaultExpectation != nil </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if mmClearUserCart.ClearUserCartMock.defaultExpectation != nil </span><span class="cov1" title="1">{
                 mm_atomic.AddUint64(&amp;mmClearUserCart.ClearUserCartMock.defaultExpectation.Counter, 1)
                 mm_want := mmClearUserCart.ClearUserCartMock.defaultExpectation.params
                 mm_want_ptrs := mmClearUserCart.ClearUserCartMock.defaultExpectation.paramPtrs
@@ -1097,15 +1221,15 @@ func (mmClearUserCart *CartRepositoryMock) ClearUserCart(ctx context.Context, us
                                 mmClearUserCart.t.Errorf("CartRepositoryMock.ClearUserCart got unexpected parameter userID, want: %#v, got: %#v%s\n", *mm_want_ptrs.userID, mm_got.userID, minimock.Diff(*mm_want_ptrs.userID, mm_got.userID))
                         }</span>
 
-                } else<span class="cov8" title="1"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
+                } else<span class="cov1" title="1"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
                         mmClearUserCart.t.Errorf("CartRepositoryMock.ClearUserCart got unexpected parameters, want: %#v, got: %#v%s\n", *mm_want, mm_got, minimock.Diff(*mm_want, mm_got))
                 }</span>
 
-                <span class="cov8" title="1">mm_results := mmClearUserCart.ClearUserCartMock.defaultExpectation.results
+                <span class="cov1" title="1">mm_results := mmClearUserCart.ClearUserCartMock.defaultExpectation.results
                 if mm_results == nil </span><span class="cov0" title="0">{
                         mmClearUserCart.t.Fatal("No results are set for the CartRepositoryMock.ClearUserCart")
                 }</span>
-                <span class="cov8" title="1">return (*mm_results).err</span>
+                <span class="cov1" title="1">return (*mm_results).err</span>
         }
         <span class="cov0" title="0">if mmClearUserCart.funcClearUserCart != nil </span><span class="cov0" title="0">{
                 return mmClearUserCart.funcClearUserCart(ctx, userID)
@@ -1139,19 +1263,19 @@ func (mmClearUserCart *mCartRepositoryMockClearUserCart) Calls() []*CartReposito
 
 // MinimockClearUserCartDone returns true if the count of the ClearUserCart invocations corresponds
 // the number of defined expectations
-func (m *CartRepositoryMock) MinimockClearUserCartDone() bool <span class="cov8" title="1">{
+func (m *CartRepositoryMock) MinimockClearUserCartDone() bool <span class="cov6" title="8">{
         if m.ClearUserCartMock.optional </span><span class="cov0" title="0">{
                 // Optional methods provide '0 or more' call count restriction.
                 return true
         }</span>
 
-        <span class="cov8" title="1">for _, e := range m.ClearUserCartMock.expectations </span><span class="cov0" title="0">{
+        <span class="cov6" title="8">for _, e := range m.ClearUserCartMock.expectations </span><span class="cov0" title="0">{
                 if mm_atomic.LoadUint64(&amp;e.Counter) &lt; 1 </span><span class="cov0" title="0">{
                         return false
                 }</span>
         }
 
-        <span class="cov8" title="1">return m.ClearUserCartMock.invocationsDone()</span>
+        <span class="cov6" title="8">return m.ClearUserCartMock.invocationsDone()</span>
 }
 
 // MinimockClearUserCartInspect logs each unmet expectation
@@ -1334,15 +1458,15 @@ func (mmDeleteItemFromUserCart *mCartRepositoryMockDeleteItemFromUserCart) Inspe
 }
 
 // Return sets up results that will be returned by cartRepository.DeleteItemFromUserCart
-func (mmDeleteItemFromUserCart *mCartRepositoryMockDeleteItemFromUserCart) Return(err error) *CartRepositoryMock <span class="cov8" title="1">{
+func (mmDeleteItemFromUserCart *mCartRepositoryMockDeleteItemFromUserCart) Return(err error) *CartRepositoryMock <span class="cov1" title="1">{
         if mmDeleteItemFromUserCart.mock.funcDeleteItemFromUserCart != nil </span><span class="cov0" title="0">{
                 mmDeleteItemFromUserCart.mock.t.Fatalf("CartRepositoryMock.DeleteItemFromUserCart mock is already set by Set")
         }</span>
 
-        <span class="cov8" title="1">if mmDeleteItemFromUserCart.defaultExpectation == nil </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if mmDeleteItemFromUserCart.defaultExpectation == nil </span><span class="cov1" title="1">{
                 mmDeleteItemFromUserCart.defaultExpectation = &amp;CartRepositoryMockDeleteItemFromUserCartExpectation{mock: mmDeleteItemFromUserCart.mock}
         }</span>
-        <span class="cov8" title="1">mmDeleteItemFromUserCart.defaultExpectation.results = &amp;CartRepositoryMockDeleteItemFromUserCartResults{err}
+        <span class="cov1" title="1">mmDeleteItemFromUserCart.defaultExpectation.results = &amp;CartRepositoryMockDeleteItemFromUserCartResults{err}
         return mmDeleteItemFromUserCart.mock</span>
 }
 
@@ -1390,19 +1514,19 @@ func (mmDeleteItemFromUserCart *mCartRepositoryMockDeleteItemFromUserCart) Times
         return mmDeleteItemFromUserCart</span>
 }
 
-func (mmDeleteItemFromUserCart *mCartRepositoryMockDeleteItemFromUserCart) invocationsDone() bool <span class="cov8" title="1">{
-        if len(mmDeleteItemFromUserCart.expectations) == 0 &amp;&amp; mmDeleteItemFromUserCart.defaultExpectation == nil &amp;&amp; mmDeleteItemFromUserCart.mock.funcDeleteItemFromUserCart == nil </span><span class="cov8" title="1">{
+func (mmDeleteItemFromUserCart *mCartRepositoryMockDeleteItemFromUserCart) invocationsDone() bool <span class="cov6" title="8">{
+        if len(mmDeleteItemFromUserCart.expectations) == 0 &amp;&amp; mmDeleteItemFromUserCart.defaultExpectation == nil &amp;&amp; mmDeleteItemFromUserCart.mock.funcDeleteItemFromUserCart == nil </span><span class="cov6" title="7">{
                 return true
         }</span>
 
-        <span class="cov8" title="1">totalInvocations := mm_atomic.LoadUint64(&amp;mmDeleteItemFromUserCart.mock.afterDeleteItemFromUserCartCounter)
+        <span class="cov1" title="1">totalInvocations := mm_atomic.LoadUint64(&amp;mmDeleteItemFromUserCart.mock.afterDeleteItemFromUserCartCounter)
         expectedInvocations := mm_atomic.LoadUint64(&amp;mmDeleteItemFromUserCart.expectedInvocations)
 
         return totalInvocations &gt; 0 &amp;&amp; (expectedInvocations == 0 || expectedInvocations == totalInvocations)</span>
 }
 
 // DeleteItemFromUserCart implements service.cartRepository
-func (mmDeleteItemFromUserCart *CartRepositoryMock) DeleteItemFromUserCart(ctx context.Context, userID int64, skuID int64) (err error) <span class="cov8" title="1">{
+func (mmDeleteItemFromUserCart *CartRepositoryMock) DeleteItemFromUserCart(ctx context.Context, userID int64, skuID int64) (err error) <span class="cov1" title="1">{
         mm_atomic.AddUint64(&amp;mmDeleteItemFromUserCart.beforeDeleteItemFromUserCartCounter, 1)
         defer mm_atomic.AddUint64(&amp;mmDeleteItemFromUserCart.afterDeleteItemFromUserCartCounter, 1)
 
@@ -1410,7 +1534,7 @@ func (mmDeleteItemFromUserCart *CartRepositoryMock) DeleteItemFromUserCart(ctx c
                 mmDeleteItemFromUserCart.inspectFuncDeleteItemFromUserCart(ctx, userID, skuID)
         }</span>
 
-        <span class="cov8" title="1">mm_params := CartRepositoryMockDeleteItemFromUserCartParams{ctx, userID, skuID}
+        <span class="cov1" title="1">mm_params := CartRepositoryMockDeleteItemFromUserCartParams{ctx, userID, skuID}
 
         // Record call args
         mmDeleteItemFromUserCart.DeleteItemFromUserCartMock.mutex.Lock()
@@ -1424,7 +1548,7 @@ func (mmDeleteItemFromUserCart *CartRepositoryMock) DeleteItemFromUserCart(ctx c
                 }</span>
         }
 
-        <span class="cov8" title="1">if mmDeleteItemFromUserCart.DeleteItemFromUserCartMock.defaultExpectation != nil </span><span class="cov8" title="1">{
+        <span class="cov1" title="1">if mmDeleteItemFromUserCart.DeleteItemFromUserCartMock.defaultExpectation != nil </span><span class="cov1" title="1">{
                 mm_atomic.AddUint64(&amp;mmDeleteItemFromUserCart.DeleteItemFromUserCartMock.defaultExpectation.Counter, 1)
                 mm_want := mmDeleteItemFromUserCart.DeleteItemFromUserCartMock.defaultExpectation.params
                 mm_want_ptrs := mmDeleteItemFromUserCart.DeleteItemFromUserCartMock.defaultExpectation.paramPtrs
@@ -1445,15 +1569,15 @@ func (mmDeleteItemFromUserCart *CartRepositoryMock) DeleteItemFromUserCart(ctx c
                                 mmDeleteItemFromUserCart.t.Errorf("CartRepositoryMock.DeleteItemFromUserCart got unexpected parameter skuID, want: %#v, got: %#v%s\n", *mm_want_ptrs.skuID, mm_got.skuID, minimock.Diff(*mm_want_ptrs.skuID, mm_got.skuID))
                         }</span>
 
-                } else<span class="cov8" title="1"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
+                } else<span class="cov1" title="1"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
                         mmDeleteItemFromUserCart.t.Errorf("CartRepositoryMock.DeleteItemFromUserCart got unexpected parameters, want: %#v, got: %#v%s\n", *mm_want, mm_got, minimock.Diff(*mm_want, mm_got))
                 }</span>
 
-                <span class="cov8" title="1">mm_results := mmDeleteItemFromUserCart.DeleteItemFromUserCartMock.defaultExpectation.results
+                <span class="cov1" title="1">mm_results := mmDeleteItemFromUserCart.DeleteItemFromUserCartMock.defaultExpectation.results
                 if mm_results == nil </span><span class="cov0" title="0">{
                         mmDeleteItemFromUserCart.t.Fatal("No results are set for the CartRepositoryMock.DeleteItemFromUserCart")
                 }</span>
-                <span class="cov8" title="1">return (*mm_results).err</span>
+                <span class="cov1" title="1">return (*mm_results).err</span>
         }
         <span class="cov0" title="0">if mmDeleteItemFromUserCart.funcDeleteItemFromUserCart != nil </span><span class="cov0" title="0">{
                 return mmDeleteItemFromUserCart.funcDeleteItemFromUserCart(ctx, userID, skuID)
@@ -1487,19 +1611,19 @@ func (mmDeleteItemFromUserCart *mCartRepositoryMockDeleteItemFromUserCart) Calls
 
 // MinimockDeleteItemFromUserCartDone returns true if the count of the DeleteItemFromUserCart invocations corresponds
 // the number of defined expectations
-func (m *CartRepositoryMock) MinimockDeleteItemFromUserCartDone() bool <span class="cov8" title="1">{
+func (m *CartRepositoryMock) MinimockDeleteItemFromUserCartDone() bool <span class="cov6" title="8">{
         if m.DeleteItemFromUserCartMock.optional </span><span class="cov0" title="0">{
                 // Optional methods provide '0 or more' call count restriction.
                 return true
         }</span>
 
-        <span class="cov8" title="1">for _, e := range m.DeleteItemFromUserCartMock.expectations </span><span class="cov0" title="0">{
+        <span class="cov6" title="8">for _, e := range m.DeleteItemFromUserCartMock.expectations </span><span class="cov0" title="0">{
                 if mm_atomic.LoadUint64(&amp;e.Counter) &lt; 1 </span><span class="cov0" title="0">{
                         return false
                 }</span>
         }
 
-        <span class="cov8" title="1">return m.DeleteItemFromUserCartMock.invocationsDone()</span>
+        <span class="cov6" title="8">return m.DeleteItemFromUserCartMock.invocationsDone()</span>
 }
 
 // MinimockDeleteItemFromUserCartInspect logs each unmet expectation
@@ -1659,15 +1783,15 @@ func (mmListUserCart *mCartRepositoryMockListUserCart) Inspect(f func(ctx contex
 }
 
 // Return sets up results that will be returned by cartRepository.ListUserCart
-func (mmListUserCart *mCartRepositoryMockListUserCart) Return(ca1 []models.CartItem, err error) *CartRepositoryMock <span class="cov8" title="1">{
+func (mmListUserCart *mCartRepositoryMockListUserCart) Return(ca1 []models.CartItem, err error) *CartRepositoryMock <span class="cov4" title="3">{
         if mmListUserCart.mock.funcListUserCart != nil </span><span class="cov0" title="0">{
                 mmListUserCart.mock.t.Fatalf("CartRepositoryMock.ListUserCart mock is already set by Set")
         }</span>
 
-        <span class="cov8" title="1">if mmListUserCart.defaultExpectation == nil </span><span class="cov8" title="1">{
+        <span class="cov4" title="3">if mmListUserCart.defaultExpectation == nil </span><span class="cov4" title="3">{
                 mmListUserCart.defaultExpectation = &amp;CartRepositoryMockListUserCartExpectation{mock: mmListUserCart.mock}
         }</span>
-        <span class="cov8" title="1">mmListUserCart.defaultExpectation.results = &amp;CartRepositoryMockListUserCartResults{ca1, err}
+        <span class="cov4" title="3">mmListUserCart.defaultExpectation.results = &amp;CartRepositoryMockListUserCartResults{ca1, err}
         return mmListUserCart.mock</span>
 }
 
@@ -1715,19 +1839,19 @@ func (mmListUserCart *mCartRepositoryMockListUserCart) Times(n uint64) *mCartRep
         return mmListUserCart</span>
 }
 
-func (mmListUserCart *mCartRepositoryMockListUserCart) invocationsDone() bool <span class="cov8" title="1">{
-        if len(mmListUserCart.expectations) == 0 &amp;&amp; mmListUserCart.defaultExpectation == nil &amp;&amp; mmListUserCart.mock.funcListUserCart == nil </span><span class="cov8" title="1">{
+func (mmListUserCart *mCartRepositoryMockListUserCart) invocationsDone() bool <span class="cov6" title="8">{
+        if len(mmListUserCart.expectations) == 0 &amp;&amp; mmListUserCart.defaultExpectation == nil &amp;&amp; mmListUserCart.mock.funcListUserCart == nil </span><span class="cov5" title="5">{
                 return true
         }</span>
 
-        <span class="cov8" title="1">totalInvocations := mm_atomic.LoadUint64(&amp;mmListUserCart.mock.afterListUserCartCounter)
+        <span class="cov4" title="3">totalInvocations := mm_atomic.LoadUint64(&amp;mmListUserCart.mock.afterListUserCartCounter)
         expectedInvocations := mm_atomic.LoadUint64(&amp;mmListUserCart.expectedInvocations)
 
         return totalInvocations &gt; 0 &amp;&amp; (expectedInvocations == 0 || expectedInvocations == totalInvocations)</span>
 }
 
 // ListUserCart implements service.cartRepository
-func (mmListUserCart *CartRepositoryMock) ListUserCart(ctx context.Context, userID int64) (ca1 []models.CartItem, err error) <span class="cov8" title="1">{
+func (mmListUserCart *CartRepositoryMock) ListUserCart(ctx context.Context, userID int64) (ca1 []models.CartItem, err error) <span class="cov4" title="3">{
         mm_atomic.AddUint64(&amp;mmListUserCart.beforeListUserCartCounter, 1)
         defer mm_atomic.AddUint64(&amp;mmListUserCart.afterListUserCartCounter, 1)
 
@@ -1735,7 +1859,7 @@ func (mmListUserCart *CartRepositoryMock) ListUserCart(ctx context.Context, user
                 mmListUserCart.inspectFuncListUserCart(ctx, userID)
         }</span>
 
-        <span class="cov8" title="1">mm_params := CartRepositoryMockListUserCartParams{ctx, userID}
+        <span class="cov4" title="3">mm_params := CartRepositoryMockListUserCartParams{ctx, userID}
 
         // Record call args
         mmListUserCart.ListUserCartMock.mutex.Lock()
@@ -1749,7 +1873,7 @@ func (mmListUserCart *CartRepositoryMock) ListUserCart(ctx context.Context, user
                 }</span>
         }
 
-        <span class="cov8" title="1">if mmListUserCart.ListUserCartMock.defaultExpectation != nil </span><span class="cov8" title="1">{
+        <span class="cov4" title="3">if mmListUserCart.ListUserCartMock.defaultExpectation != nil </span><span class="cov4" title="3">{
                 mm_atomic.AddUint64(&amp;mmListUserCart.ListUserCartMock.defaultExpectation.Counter, 1)
                 mm_want := mmListUserCart.ListUserCartMock.defaultExpectation.params
                 mm_want_ptrs := mmListUserCart.ListUserCartMock.defaultExpectation.paramPtrs
@@ -1766,15 +1890,15 @@ func (mmListUserCart *CartRepositoryMock) ListUserCart(ctx context.Context, user
                                 mmListUserCart.t.Errorf("CartRepositoryMock.ListUserCart got unexpected parameter userID, want: %#v, got: %#v%s\n", *mm_want_ptrs.userID, mm_got.userID, minimock.Diff(*mm_want_ptrs.userID, mm_got.userID))
                         }</span>
 
-                } else<span class="cov8" title="1"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
+                } else<span class="cov4" title="3"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
                         mmListUserCart.t.Errorf("CartRepositoryMock.ListUserCart got unexpected parameters, want: %#v, got: %#v%s\n", *mm_want, mm_got, minimock.Diff(*mm_want, mm_got))
                 }</span>
 
-                <span class="cov8" title="1">mm_results := mmListUserCart.ListUserCartMock.defaultExpectation.results
+                <span class="cov4" title="3">mm_results := mmListUserCart.ListUserCartMock.defaultExpectation.results
                 if mm_results == nil </span><span class="cov0" title="0">{
                         mmListUserCart.t.Fatal("No results are set for the CartRepositoryMock.ListUserCart")
                 }</span>
-                <span class="cov8" title="1">return (*mm_results).ca1, (*mm_results).err</span>
+                <span class="cov4" title="3">return (*mm_results).ca1, (*mm_results).err</span>
         }
         <span class="cov0" title="0">if mmListUserCart.funcListUserCart != nil </span><span class="cov0" title="0">{
                 return mmListUserCart.funcListUserCart(ctx, userID)
@@ -1808,19 +1932,19 @@ func (mmListUserCart *mCartRepositoryMockListUserCart) Calls() []*CartRepository
 
 // MinimockListUserCartDone returns true if the count of the ListUserCart invocations corresponds
 // the number of defined expectations
-func (m *CartRepositoryMock) MinimockListUserCartDone() bool <span class="cov8" title="1">{
+func (m *CartRepositoryMock) MinimockListUserCartDone() bool <span class="cov6" title="8">{
         if m.ListUserCartMock.optional </span><span class="cov0" title="0">{
                 // Optional methods provide '0 or more' call count restriction.
                 return true
         }</span>
 
-        <span class="cov8" title="1">for _, e := range m.ListUserCartMock.expectations </span><span class="cov0" title="0">{
+        <span class="cov6" title="8">for _, e := range m.ListUserCartMock.expectations </span><span class="cov0" title="0">{
                 if mm_atomic.LoadUint64(&amp;e.Counter) &lt; 1 </span><span class="cov0" title="0">{
                         return false
                 }</span>
         }
 
-        <span class="cov8" title="1">return m.ListUserCartMock.invocationsDone()</span>
+        <span class="cov6" title="8">return m.ListUserCartMock.invocationsDone()</span>
 }
 
 // MinimockListUserCartInspect logs each unmet expectation
@@ -1852,8 +1976,8 @@ func (m *CartRepositoryMock) MinimockListUserCartInspect() <span class="cov0" ti
 }
 
 // MinimockFinish checks that all mocked methods have been called the expected number of times
-func (m *CartRepositoryMock) MinimockFinish() <span class="cov8" title="1">{
-        m.finishOnce.Do(func() </span><span class="cov8" title="1">{
+func (m *CartRepositoryMock) MinimockFinish() <span class="cov10" title="23">{
+        m.finishOnce.Do(func() </span><span class="cov6" title="8">{
                 if !m.minimockDone() </span><span class="cov0" title="0">{
                         m.MinimockAddItemToUserCartInspect()
 
@@ -1882,7 +2006,7 @@ func (m *CartRepositoryMock) MinimockWait(timeout mm_time.Duration) <span class=
         }
 }
 
-func (m *CartRepositoryMock) minimockDone() bool <span class="cov8" title="1">{
+func (m *CartRepositoryMock) minimockDone() bool <span class="cov6" title="8">{
         done := true
         return done &amp;&amp;
                 m.MinimockAddItemToUserCartDone() &amp;&amp;
@@ -1892,7 +2016,765 @@ func (m *CartRepositoryMock) minimockDone() bool <span class="cov8" title="1">{
 }</span>
 </pre>
 		
-		<pre class="file" id="file6" style="display: none">// Code generated by http://github.com/gojuno/minimock (v3.3.12). DO NOT EDIT.
+		<pre class="file" id="file7" style="display: none">// Code generated by http://github.com/gojuno/minimock (v3.3.12). DO NOT EDIT.
+
+package mocks
+
+//go:generate minimock -i route256/cart/internal/service.lomsClient -o loms_client_mock.go -n LomsClientMock -p mocks
+
+import (
+        "context"
+        "route256/cart/pkg/loms"
+        "sync"
+        mm_atomic "sync/atomic"
+        mm_time "time"
+
+        "github.com/gojuno/minimock/v3"
+)
+
+// LomsClientMock implements service.lomsClient
+type LomsClientMock struct {
+        t          minimock.Tester
+        finishOnce sync.Once
+
+        funcCreateOrder          func(ctx context.Context, userID int64, items []loms.OrderItem) (i1 int64, err error)
+        inspectFuncCreateOrder   func(ctx context.Context, userID int64, items []loms.OrderItem)
+        afterCreateOrderCounter  uint64
+        beforeCreateOrderCounter uint64
+        CreateOrderMock          mLomsClientMockCreateOrder
+
+        funcGetStockInfo          func(ctx context.Context, sku uint32) (u1 uint64, err error)
+        inspectFuncGetStockInfo   func(ctx context.Context, sku uint32)
+        afterGetStockInfoCounter  uint64
+        beforeGetStockInfoCounter uint64
+        GetStockInfoMock          mLomsClientMockGetStockInfo
+}
+
+// NewLomsClientMock returns a mock for service.lomsClient
+func NewLomsClientMock(t minimock.Tester) *LomsClientMock <span class="cov7" title="9">{
+        m := &amp;LomsClientMock{t: t}
+
+        if controller, ok := t.(minimock.MockController); ok </span><span class="cov7" title="8">{
+                controller.RegisterMocker(m)
+        }</span>
+
+        <span class="cov7" title="9">m.CreateOrderMock = mLomsClientMockCreateOrder{mock: m}
+        m.CreateOrderMock.callArgs = []*LomsClientMockCreateOrderParams{}
+
+        m.GetStockInfoMock = mLomsClientMockGetStockInfo{mock: m}
+        m.GetStockInfoMock.callArgs = []*LomsClientMockGetStockInfoParams{}
+
+        t.Cleanup(m.MinimockFinish)
+
+        return m</span>
+}
+
+type mLomsClientMockCreateOrder struct {
+        optional           bool
+        mock               *LomsClientMock
+        defaultExpectation *LomsClientMockCreateOrderExpectation
+        expectations       []*LomsClientMockCreateOrderExpectation
+
+        callArgs []*LomsClientMockCreateOrderParams
+        mutex    sync.RWMutex
+
+        expectedInvocations uint64
+}
+
+// LomsClientMockCreateOrderExpectation specifies expectation struct of the lomsClient.CreateOrder
+type LomsClientMockCreateOrderExpectation struct {
+        mock      *LomsClientMock
+        params    *LomsClientMockCreateOrderParams
+        paramPtrs *LomsClientMockCreateOrderParamPtrs
+        results   *LomsClientMockCreateOrderResults
+        Counter   uint64
+}
+
+// LomsClientMockCreateOrderParams contains parameters of the lomsClient.CreateOrder
+type LomsClientMockCreateOrderParams struct {
+        ctx    context.Context
+        userID int64
+        items  []loms.OrderItem
+}
+
+// LomsClientMockCreateOrderParamPtrs contains pointers to parameters of the lomsClient.CreateOrder
+type LomsClientMockCreateOrderParamPtrs struct {
+        ctx    *context.Context
+        userID *int64
+        items  *[]loms.OrderItem
+}
+
+// LomsClientMockCreateOrderResults contains results of the lomsClient.CreateOrder
+type LomsClientMockCreateOrderResults struct {
+        i1  int64
+        err error
+}
+
+// Marks this method to be optional. The default behavior of any method with Return() is '1 or more', meaning
+// the test will fail minimock's automatic final call check if the mocked method was not called at least once.
+// Optional() makes method check to work in '0 or more' mode.
+// It is NOT RECOMMENDED to use this option unless you really need it, as default behaviour helps to
+// catch the problems when the expected method call is totally skipped during test run.
+func (mmCreateOrder *mLomsClientMockCreateOrder) Optional() *mLomsClientMockCreateOrder <span class="cov0" title="0">{
+        mmCreateOrder.optional = true
+        return mmCreateOrder
+}</span>
+
+// Expect sets up expected params for lomsClient.CreateOrder
+func (mmCreateOrder *mLomsClientMockCreateOrder) Expect(ctx context.Context, userID int64, items []loms.OrderItem) *mLomsClientMockCreateOrder <span class="cov0" title="0">{
+        if mmCreateOrder.mock.funcCreateOrder != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation == nil </span><span class="cov0" title="0">{
+                mmCreateOrder.defaultExpectation = &amp;LomsClientMockCreateOrderExpectation{}
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation.paramPtrs != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by ExpectParams functions")
+        }</span>
+
+        <span class="cov0" title="0">mmCreateOrder.defaultExpectation.params = &amp;LomsClientMockCreateOrderParams{ctx, userID, items}
+        for _, e := range mmCreateOrder.expectations </span><span class="cov0" title="0">{
+                if minimock.Equal(e.params, mmCreateOrder.defaultExpectation.params) </span><span class="cov0" title="0">{
+                        mmCreateOrder.mock.t.Fatalf("Expectation set by When has same params: %#v", *mmCreateOrder.defaultExpectation.params)
+                }</span>
+        }
+
+        <span class="cov0" title="0">return mmCreateOrder</span>
+}
+
+// ExpectCtxParam1 sets up expected param ctx for lomsClient.CreateOrder
+func (mmCreateOrder *mLomsClientMockCreateOrder) ExpectCtxParam1(ctx context.Context) *mLomsClientMockCreateOrder <span class="cov0" title="0">{
+        if mmCreateOrder.mock.funcCreateOrder != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation == nil </span><span class="cov0" title="0">{
+                mmCreateOrder.defaultExpectation = &amp;LomsClientMockCreateOrderExpectation{}
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation.params != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by Expect")
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation.paramPtrs == nil </span><span class="cov0" title="0">{
+                mmCreateOrder.defaultExpectation.paramPtrs = &amp;LomsClientMockCreateOrderParamPtrs{}
+        }</span>
+        <span class="cov0" title="0">mmCreateOrder.defaultExpectation.paramPtrs.ctx = &amp;ctx
+
+        return mmCreateOrder</span>
+}
+
+// ExpectUserIDParam2 sets up expected param userID for lomsClient.CreateOrder
+func (mmCreateOrder *mLomsClientMockCreateOrder) ExpectUserIDParam2(userID int64) *mLomsClientMockCreateOrder <span class="cov0" title="0">{
+        if mmCreateOrder.mock.funcCreateOrder != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation == nil </span><span class="cov0" title="0">{
+                mmCreateOrder.defaultExpectation = &amp;LomsClientMockCreateOrderExpectation{}
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation.params != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by Expect")
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation.paramPtrs == nil </span><span class="cov0" title="0">{
+                mmCreateOrder.defaultExpectation.paramPtrs = &amp;LomsClientMockCreateOrderParamPtrs{}
+        }</span>
+        <span class="cov0" title="0">mmCreateOrder.defaultExpectation.paramPtrs.userID = &amp;userID
+
+        return mmCreateOrder</span>
+}
+
+// ExpectItemsParam3 sets up expected param items for lomsClient.CreateOrder
+func (mmCreateOrder *mLomsClientMockCreateOrder) ExpectItemsParam3(items []loms.OrderItem) *mLomsClientMockCreateOrder <span class="cov0" title="0">{
+        if mmCreateOrder.mock.funcCreateOrder != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation == nil </span><span class="cov0" title="0">{
+                mmCreateOrder.defaultExpectation = &amp;LomsClientMockCreateOrderExpectation{}
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation.params != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by Expect")
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation.paramPtrs == nil </span><span class="cov0" title="0">{
+                mmCreateOrder.defaultExpectation.paramPtrs = &amp;LomsClientMockCreateOrderParamPtrs{}
+        }</span>
+        <span class="cov0" title="0">mmCreateOrder.defaultExpectation.paramPtrs.items = &amp;items
+
+        return mmCreateOrder</span>
+}
+
+// Inspect accepts an inspector function that has same arguments as the lomsClient.CreateOrder
+func (mmCreateOrder *mLomsClientMockCreateOrder) Inspect(f func(ctx context.Context, userID int64, items []loms.OrderItem)) *mLomsClientMockCreateOrder <span class="cov0" title="0">{
+        if mmCreateOrder.mock.inspectFuncCreateOrder != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("Inspect function is already set for LomsClientMock.CreateOrder")
+        }</span>
+
+        <span class="cov0" title="0">mmCreateOrder.mock.inspectFuncCreateOrder = f
+
+        return mmCreateOrder</span>
+}
+
+// Return sets up results that will be returned by lomsClient.CreateOrder
+func (mmCreateOrder *mLomsClientMockCreateOrder) Return(i1 int64, err error) *LomsClientMock <span class="cov0" title="0">{
+        if mmCreateOrder.mock.funcCreateOrder != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">if mmCreateOrder.defaultExpectation == nil </span><span class="cov0" title="0">{
+                mmCreateOrder.defaultExpectation = &amp;LomsClientMockCreateOrderExpectation{mock: mmCreateOrder.mock}
+        }</span>
+        <span class="cov0" title="0">mmCreateOrder.defaultExpectation.results = &amp;LomsClientMockCreateOrderResults{i1, err}
+        return mmCreateOrder.mock</span>
+}
+
+// Set uses given function f to mock the lomsClient.CreateOrder method
+func (mmCreateOrder *mLomsClientMockCreateOrder) Set(f func(ctx context.Context, userID int64, items []loms.OrderItem) (i1 int64, err error)) *LomsClientMock <span class="cov0" title="0">{
+        if mmCreateOrder.defaultExpectation != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("Default expectation is already set for the lomsClient.CreateOrder method")
+        }</span>
+
+        <span class="cov0" title="0">if len(mmCreateOrder.expectations) &gt; 0 </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("Some expectations are already set for the lomsClient.CreateOrder method")
+        }</span>
+
+        <span class="cov0" title="0">mmCreateOrder.mock.funcCreateOrder = f
+        return mmCreateOrder.mock</span>
+}
+
+// When sets expectation for the lomsClient.CreateOrder which will trigger the result defined by the following
+// Then helper
+func (mmCreateOrder *mLomsClientMockCreateOrder) When(ctx context.Context, userID int64, items []loms.OrderItem) *LomsClientMockCreateOrderExpectation <span class="cov0" title="0">{
+        if mmCreateOrder.mock.funcCreateOrder != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("LomsClientMock.CreateOrder mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">expectation := &amp;LomsClientMockCreateOrderExpectation{
+                mock:   mmCreateOrder.mock,
+                params: &amp;LomsClientMockCreateOrderParams{ctx, userID, items},
+        }
+        mmCreateOrder.expectations = append(mmCreateOrder.expectations, expectation)
+        return expectation</span>
+}
+
+// Then sets up lomsClient.CreateOrder return parameters for the expectation previously defined by the When method
+func (e *LomsClientMockCreateOrderExpectation) Then(i1 int64, err error) *LomsClientMock <span class="cov0" title="0">{
+        e.results = &amp;LomsClientMockCreateOrderResults{i1, err}
+        return e.mock
+}</span>
+
+// Times sets number of times lomsClient.CreateOrder should be invoked
+func (mmCreateOrder *mLomsClientMockCreateOrder) Times(n uint64) *mLomsClientMockCreateOrder <span class="cov0" title="0">{
+        if n == 0 </span><span class="cov0" title="0">{
+                mmCreateOrder.mock.t.Fatalf("Times of LomsClientMock.CreateOrder mock can not be zero")
+        }</span>
+        <span class="cov0" title="0">mm_atomic.StoreUint64(&amp;mmCreateOrder.expectedInvocations, n)
+        return mmCreateOrder</span>
+}
+
+func (mmCreateOrder *mLomsClientMockCreateOrder) invocationsDone() bool <span class="cov7" title="9">{
+        if len(mmCreateOrder.expectations) == 0 &amp;&amp; mmCreateOrder.defaultExpectation == nil &amp;&amp; mmCreateOrder.mock.funcCreateOrder == nil </span><span class="cov7" title="9">{
+                return true
+        }</span>
+
+        <span class="cov0" title="0">totalInvocations := mm_atomic.LoadUint64(&amp;mmCreateOrder.mock.afterCreateOrderCounter)
+        expectedInvocations := mm_atomic.LoadUint64(&amp;mmCreateOrder.expectedInvocations)
+
+        return totalInvocations &gt; 0 &amp;&amp; (expectedInvocations == 0 || expectedInvocations == totalInvocations)</span>
+}
+
+// CreateOrder implements service.lomsClient
+func (mmCreateOrder *LomsClientMock) CreateOrder(ctx context.Context, userID int64, items []loms.OrderItem) (i1 int64, err error) <span class="cov0" title="0">{
+        mm_atomic.AddUint64(&amp;mmCreateOrder.beforeCreateOrderCounter, 1)
+        defer mm_atomic.AddUint64(&amp;mmCreateOrder.afterCreateOrderCounter, 1)
+
+        if mmCreateOrder.inspectFuncCreateOrder != nil </span><span class="cov0" title="0">{
+                mmCreateOrder.inspectFuncCreateOrder(ctx, userID, items)
+        }</span>
+
+        <span class="cov0" title="0">mm_params := LomsClientMockCreateOrderParams{ctx, userID, items}
+
+        // Record call args
+        mmCreateOrder.CreateOrderMock.mutex.Lock()
+        mmCreateOrder.CreateOrderMock.callArgs = append(mmCreateOrder.CreateOrderMock.callArgs, &amp;mm_params)
+        mmCreateOrder.CreateOrderMock.mutex.Unlock()
+
+        for _, e := range mmCreateOrder.CreateOrderMock.expectations </span><span class="cov0" title="0">{
+                if minimock.Equal(*e.params, mm_params) </span><span class="cov0" title="0">{
+                        mm_atomic.AddUint64(&amp;e.Counter, 1)
+                        return e.results.i1, e.results.err
+                }</span>
+        }
+
+        <span class="cov0" title="0">if mmCreateOrder.CreateOrderMock.defaultExpectation != nil </span><span class="cov0" title="0">{
+                mm_atomic.AddUint64(&amp;mmCreateOrder.CreateOrderMock.defaultExpectation.Counter, 1)
+                mm_want := mmCreateOrder.CreateOrderMock.defaultExpectation.params
+                mm_want_ptrs := mmCreateOrder.CreateOrderMock.defaultExpectation.paramPtrs
+
+                mm_got := LomsClientMockCreateOrderParams{ctx, userID, items}
+
+                if mm_want_ptrs != nil </span><span class="cov0" title="0">{
+
+                        if mm_want_ptrs.ctx != nil &amp;&amp; !minimock.Equal(*mm_want_ptrs.ctx, mm_got.ctx) </span><span class="cov0" title="0">{
+                                mmCreateOrder.t.Errorf("LomsClientMock.CreateOrder got unexpected parameter ctx, want: %#v, got: %#v%s\n", *mm_want_ptrs.ctx, mm_got.ctx, minimock.Diff(*mm_want_ptrs.ctx, mm_got.ctx))
+                        }</span>
+
+                        <span class="cov0" title="0">if mm_want_ptrs.userID != nil &amp;&amp; !minimock.Equal(*mm_want_ptrs.userID, mm_got.userID) </span><span class="cov0" title="0">{
+                                mmCreateOrder.t.Errorf("LomsClientMock.CreateOrder got unexpected parameter userID, want: %#v, got: %#v%s\n", *mm_want_ptrs.userID, mm_got.userID, minimock.Diff(*mm_want_ptrs.userID, mm_got.userID))
+                        }</span>
+
+                        <span class="cov0" title="0">if mm_want_ptrs.items != nil &amp;&amp; !minimock.Equal(*mm_want_ptrs.items, mm_got.items) </span><span class="cov0" title="0">{
+                                mmCreateOrder.t.Errorf("LomsClientMock.CreateOrder got unexpected parameter items, want: %#v, got: %#v%s\n", *mm_want_ptrs.items, mm_got.items, minimock.Diff(*mm_want_ptrs.items, mm_got.items))
+                        }</span>
+
+                } else<span class="cov0" title="0"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
+                        mmCreateOrder.t.Errorf("LomsClientMock.CreateOrder got unexpected parameters, want: %#v, got: %#v%s\n", *mm_want, mm_got, minimock.Diff(*mm_want, mm_got))
+                }</span>
+
+                <span class="cov0" title="0">mm_results := mmCreateOrder.CreateOrderMock.defaultExpectation.results
+                if mm_results == nil </span><span class="cov0" title="0">{
+                        mmCreateOrder.t.Fatal("No results are set for the LomsClientMock.CreateOrder")
+                }</span>
+                <span class="cov0" title="0">return (*mm_results).i1, (*mm_results).err</span>
+        }
+        <span class="cov0" title="0">if mmCreateOrder.funcCreateOrder != nil </span><span class="cov0" title="0">{
+                return mmCreateOrder.funcCreateOrder(ctx, userID, items)
+        }</span>
+        <span class="cov0" title="0">mmCreateOrder.t.Fatalf("Unexpected call to LomsClientMock.CreateOrder. %v %v %v", ctx, userID, items)
+        return</span>
+}
+
+// CreateOrderAfterCounter returns a count of finished LomsClientMock.CreateOrder invocations
+func (mmCreateOrder *LomsClientMock) CreateOrderAfterCounter() uint64 <span class="cov0" title="0">{
+        return mm_atomic.LoadUint64(&amp;mmCreateOrder.afterCreateOrderCounter)
+}</span>
+
+// CreateOrderBeforeCounter returns a count of LomsClientMock.CreateOrder invocations
+func (mmCreateOrder *LomsClientMock) CreateOrderBeforeCounter() uint64 <span class="cov0" title="0">{
+        return mm_atomic.LoadUint64(&amp;mmCreateOrder.beforeCreateOrderCounter)
+}</span>
+
+// Calls returns a list of arguments used in each call to LomsClientMock.CreateOrder.
+// The list is in the same order as the calls were made (i.e. recent calls have a higher index)
+func (mmCreateOrder *mLomsClientMockCreateOrder) Calls() []*LomsClientMockCreateOrderParams <span class="cov0" title="0">{
+        mmCreateOrder.mutex.RLock()
+
+        argCopy := make([]*LomsClientMockCreateOrderParams, len(mmCreateOrder.callArgs))
+        copy(argCopy, mmCreateOrder.callArgs)
+
+        mmCreateOrder.mutex.RUnlock()
+
+        return argCopy
+}</span>
+
+// MinimockCreateOrderDone returns true if the count of the CreateOrder invocations corresponds
+// the number of defined expectations
+func (m *LomsClientMock) MinimockCreateOrderDone() bool <span class="cov7" title="9">{
+        if m.CreateOrderMock.optional </span><span class="cov0" title="0">{
+                // Optional methods provide '0 or more' call count restriction.
+                return true
+        }</span>
+
+        <span class="cov7" title="9">for _, e := range m.CreateOrderMock.expectations </span><span class="cov0" title="0">{
+                if mm_atomic.LoadUint64(&amp;e.Counter) &lt; 1 </span><span class="cov0" title="0">{
+                        return false
+                }</span>
+        }
+
+        <span class="cov7" title="9">return m.CreateOrderMock.invocationsDone()</span>
+}
+
+// MinimockCreateOrderInspect logs each unmet expectation
+func (m *LomsClientMock) MinimockCreateOrderInspect() <span class="cov0" title="0">{
+        for _, e := range m.CreateOrderMock.expectations </span><span class="cov0" title="0">{
+                if mm_atomic.LoadUint64(&amp;e.Counter) &lt; 1 </span><span class="cov0" title="0">{
+                        m.t.Errorf("Expected call to LomsClientMock.CreateOrder with params: %#v", *e.params)
+                }</span>
+        }
+
+        <span class="cov0" title="0">afterCreateOrderCounter := mm_atomic.LoadUint64(&amp;m.afterCreateOrderCounter)
+        // if default expectation was set then invocations count should be greater than zero
+        if m.CreateOrderMock.defaultExpectation != nil &amp;&amp; afterCreateOrderCounter &lt; 1 </span><span class="cov0" title="0">{
+                if m.CreateOrderMock.defaultExpectation.params == nil </span><span class="cov0" title="0">{
+                        m.t.Error("Expected call to LomsClientMock.CreateOrder")
+                }</span> else<span class="cov0" title="0"> {
+                        m.t.Errorf("Expected call to LomsClientMock.CreateOrder with params: %#v", *m.CreateOrderMock.defaultExpectation.params)
+                }</span>
+        }
+        // if func was set then invocations count should be greater than zero
+        <span class="cov0" title="0">if m.funcCreateOrder != nil &amp;&amp; afterCreateOrderCounter &lt; 1 </span><span class="cov0" title="0">{
+                m.t.Error("Expected call to LomsClientMock.CreateOrder")
+        }</span>
+
+        <span class="cov0" title="0">if !m.CreateOrderMock.invocationsDone() &amp;&amp; afterCreateOrderCounter &gt; 0 </span><span class="cov0" title="0">{
+                m.t.Errorf("Expected %d calls to LomsClientMock.CreateOrder but found %d calls",
+                        mm_atomic.LoadUint64(&amp;m.CreateOrderMock.expectedInvocations), afterCreateOrderCounter)
+        }</span>
+}
+
+type mLomsClientMockGetStockInfo struct {
+        optional           bool
+        mock               *LomsClientMock
+        defaultExpectation *LomsClientMockGetStockInfoExpectation
+        expectations       []*LomsClientMockGetStockInfoExpectation
+
+        callArgs []*LomsClientMockGetStockInfoParams
+        mutex    sync.RWMutex
+
+        expectedInvocations uint64
+}
+
+// LomsClientMockGetStockInfoExpectation specifies expectation struct of the lomsClient.GetStockInfo
+type LomsClientMockGetStockInfoExpectation struct {
+        mock      *LomsClientMock
+        params    *LomsClientMockGetStockInfoParams
+        paramPtrs *LomsClientMockGetStockInfoParamPtrs
+        results   *LomsClientMockGetStockInfoResults
+        Counter   uint64
+}
+
+// LomsClientMockGetStockInfoParams contains parameters of the lomsClient.GetStockInfo
+type LomsClientMockGetStockInfoParams struct {
+        ctx context.Context
+        sku uint32
+}
+
+// LomsClientMockGetStockInfoParamPtrs contains pointers to parameters of the lomsClient.GetStockInfo
+type LomsClientMockGetStockInfoParamPtrs struct {
+        ctx *context.Context
+        sku *uint32
+}
+
+// LomsClientMockGetStockInfoResults contains results of the lomsClient.GetStockInfo
+type LomsClientMockGetStockInfoResults struct {
+        u1  uint64
+        err error
+}
+
+// Marks this method to be optional. The default behavior of any method with Return() is '1 or more', meaning
+// the test will fail minimock's automatic final call check if the mocked method was not called at least once.
+// Optional() makes method check to work in '0 or more' mode.
+// It is NOT RECOMMENDED to use this option unless you really need it, as default behaviour helps to
+// catch the problems when the expected method call is totally skipped during test run.
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) Optional() *mLomsClientMockGetStockInfo <span class="cov0" title="0">{
+        mmGetStockInfo.optional = true
+        return mmGetStockInfo
+}</span>
+
+// Expect sets up expected params for lomsClient.GetStockInfo
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) Expect(ctx context.Context, sku uint32) *mLomsClientMockGetStockInfo <span class="cov0" title="0">{
+        if mmGetStockInfo.mock.funcGetStockInfo != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("LomsClientMock.GetStockInfo mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">if mmGetStockInfo.defaultExpectation == nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.defaultExpectation = &amp;LomsClientMockGetStockInfoExpectation{}
+        }</span>
+
+        <span class="cov0" title="0">if mmGetStockInfo.defaultExpectation.paramPtrs != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("LomsClientMock.GetStockInfo mock is already set by ExpectParams functions")
+        }</span>
+
+        <span class="cov0" title="0">mmGetStockInfo.defaultExpectation.params = &amp;LomsClientMockGetStockInfoParams{ctx, sku}
+        for _, e := range mmGetStockInfo.expectations </span><span class="cov0" title="0">{
+                if minimock.Equal(e.params, mmGetStockInfo.defaultExpectation.params) </span><span class="cov0" title="0">{
+                        mmGetStockInfo.mock.t.Fatalf("Expectation set by When has same params: %#v", *mmGetStockInfo.defaultExpectation.params)
+                }</span>
+        }
+
+        <span class="cov0" title="0">return mmGetStockInfo</span>
+}
+
+// ExpectCtxParam1 sets up expected param ctx for lomsClient.GetStockInfo
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) ExpectCtxParam1(ctx context.Context) *mLomsClientMockGetStockInfo <span class="cov0" title="0">{
+        if mmGetStockInfo.mock.funcGetStockInfo != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("LomsClientMock.GetStockInfo mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">if mmGetStockInfo.defaultExpectation == nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.defaultExpectation = &amp;LomsClientMockGetStockInfoExpectation{}
+        }</span>
+
+        <span class="cov0" title="0">if mmGetStockInfo.defaultExpectation.params != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("LomsClientMock.GetStockInfo mock is already set by Expect")
+        }</span>
+
+        <span class="cov0" title="0">if mmGetStockInfo.defaultExpectation.paramPtrs == nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.defaultExpectation.paramPtrs = &amp;LomsClientMockGetStockInfoParamPtrs{}
+        }</span>
+        <span class="cov0" title="0">mmGetStockInfo.defaultExpectation.paramPtrs.ctx = &amp;ctx
+
+        return mmGetStockInfo</span>
+}
+
+// ExpectSkuParam2 sets up expected param sku for lomsClient.GetStockInfo
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) ExpectSkuParam2(sku uint32) *mLomsClientMockGetStockInfo <span class="cov0" title="0">{
+        if mmGetStockInfo.mock.funcGetStockInfo != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("LomsClientMock.GetStockInfo mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">if mmGetStockInfo.defaultExpectation == nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.defaultExpectation = &amp;LomsClientMockGetStockInfoExpectation{}
+        }</span>
+
+        <span class="cov0" title="0">if mmGetStockInfo.defaultExpectation.params != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("LomsClientMock.GetStockInfo mock is already set by Expect")
+        }</span>
+
+        <span class="cov0" title="0">if mmGetStockInfo.defaultExpectation.paramPtrs == nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.defaultExpectation.paramPtrs = &amp;LomsClientMockGetStockInfoParamPtrs{}
+        }</span>
+        <span class="cov0" title="0">mmGetStockInfo.defaultExpectation.paramPtrs.sku = &amp;sku
+
+        return mmGetStockInfo</span>
+}
+
+// Inspect accepts an inspector function that has same arguments as the lomsClient.GetStockInfo
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) Inspect(f func(ctx context.Context, sku uint32)) *mLomsClientMockGetStockInfo <span class="cov0" title="0">{
+        if mmGetStockInfo.mock.inspectFuncGetStockInfo != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("Inspect function is already set for LomsClientMock.GetStockInfo")
+        }</span>
+
+        <span class="cov0" title="0">mmGetStockInfo.mock.inspectFuncGetStockInfo = f
+
+        return mmGetStockInfo</span>
+}
+
+// Return sets up results that will be returned by lomsClient.GetStockInfo
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) Return(u1 uint64, err error) *LomsClientMock <span class="cov0" title="0">{
+        if mmGetStockInfo.mock.funcGetStockInfo != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("LomsClientMock.GetStockInfo mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">if mmGetStockInfo.defaultExpectation == nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.defaultExpectation = &amp;LomsClientMockGetStockInfoExpectation{mock: mmGetStockInfo.mock}
+        }</span>
+        <span class="cov0" title="0">mmGetStockInfo.defaultExpectation.results = &amp;LomsClientMockGetStockInfoResults{u1, err}
+        return mmGetStockInfo.mock</span>
+}
+
+// Set uses given function f to mock the lomsClient.GetStockInfo method
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) Set(f func(ctx context.Context, sku uint32) (u1 uint64, err error)) *LomsClientMock <span class="cov1" title="1">{
+        if mmGetStockInfo.defaultExpectation != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("Default expectation is already set for the lomsClient.GetStockInfo method")
+        }</span>
+
+        <span class="cov1" title="1">if len(mmGetStockInfo.expectations) &gt; 0 </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("Some expectations are already set for the lomsClient.GetStockInfo method")
+        }</span>
+
+        <span class="cov1" title="1">mmGetStockInfo.mock.funcGetStockInfo = f
+        return mmGetStockInfo.mock</span>
+}
+
+// When sets expectation for the lomsClient.GetStockInfo which will trigger the result defined by the following
+// Then helper
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) When(ctx context.Context, sku uint32) *LomsClientMockGetStockInfoExpectation <span class="cov0" title="0">{
+        if mmGetStockInfo.mock.funcGetStockInfo != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("LomsClientMock.GetStockInfo mock is already set by Set")
+        }</span>
+
+        <span class="cov0" title="0">expectation := &amp;LomsClientMockGetStockInfoExpectation{
+                mock:   mmGetStockInfo.mock,
+                params: &amp;LomsClientMockGetStockInfoParams{ctx, sku},
+        }
+        mmGetStockInfo.expectations = append(mmGetStockInfo.expectations, expectation)
+        return expectation</span>
+}
+
+// Then sets up lomsClient.GetStockInfo return parameters for the expectation previously defined by the When method
+func (e *LomsClientMockGetStockInfoExpectation) Then(u1 uint64, err error) *LomsClientMock <span class="cov0" title="0">{
+        e.results = &amp;LomsClientMockGetStockInfoResults{u1, err}
+        return e.mock
+}</span>
+
+// Times sets number of times lomsClient.GetStockInfo should be invoked
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) Times(n uint64) *mLomsClientMockGetStockInfo <span class="cov0" title="0">{
+        if n == 0 </span><span class="cov0" title="0">{
+                mmGetStockInfo.mock.t.Fatalf("Times of LomsClientMock.GetStockInfo mock can not be zero")
+        }</span>
+        <span class="cov0" title="0">mm_atomic.StoreUint64(&amp;mmGetStockInfo.expectedInvocations, n)
+        return mmGetStockInfo</span>
+}
+
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) invocationsDone() bool <span class="cov7" title="9">{
+        if len(mmGetStockInfo.expectations) == 0 &amp;&amp; mmGetStockInfo.defaultExpectation == nil &amp;&amp; mmGetStockInfo.mock.funcGetStockInfo == nil </span><span class="cov7" title="8">{
+                return true
+        }</span>
+
+        <span class="cov1" title="1">totalInvocations := mm_atomic.LoadUint64(&amp;mmGetStockInfo.mock.afterGetStockInfoCounter)
+        expectedInvocations := mm_atomic.LoadUint64(&amp;mmGetStockInfo.expectedInvocations)
+
+        return totalInvocations &gt; 0 &amp;&amp; (expectedInvocations == 0 || expectedInvocations == totalInvocations)</span>
+}
+
+// GetStockInfo implements service.lomsClient
+func (mmGetStockInfo *LomsClientMock) GetStockInfo(ctx context.Context, sku uint32) (u1 uint64, err error) <span class="cov1" title="1">{
+        mm_atomic.AddUint64(&amp;mmGetStockInfo.beforeGetStockInfoCounter, 1)
+        defer mm_atomic.AddUint64(&amp;mmGetStockInfo.afterGetStockInfoCounter, 1)
+
+        if mmGetStockInfo.inspectFuncGetStockInfo != nil </span><span class="cov0" title="0">{
+                mmGetStockInfo.inspectFuncGetStockInfo(ctx, sku)
+        }</span>
+
+        <span class="cov1" title="1">mm_params := LomsClientMockGetStockInfoParams{ctx, sku}
+
+        // Record call args
+        mmGetStockInfo.GetStockInfoMock.mutex.Lock()
+        mmGetStockInfo.GetStockInfoMock.callArgs = append(mmGetStockInfo.GetStockInfoMock.callArgs, &amp;mm_params)
+        mmGetStockInfo.GetStockInfoMock.mutex.Unlock()
+
+        for _, e := range mmGetStockInfo.GetStockInfoMock.expectations </span><span class="cov0" title="0">{
+                if minimock.Equal(*e.params, mm_params) </span><span class="cov0" title="0">{
+                        mm_atomic.AddUint64(&amp;e.Counter, 1)
+                        return e.results.u1, e.results.err
+                }</span>
+        }
+
+        <span class="cov1" title="1">if mmGetStockInfo.GetStockInfoMock.defaultExpectation != nil </span><span class="cov0" title="0">{
+                mm_atomic.AddUint64(&amp;mmGetStockInfo.GetStockInfoMock.defaultExpectation.Counter, 1)
+                mm_want := mmGetStockInfo.GetStockInfoMock.defaultExpectation.params
+                mm_want_ptrs := mmGetStockInfo.GetStockInfoMock.defaultExpectation.paramPtrs
+
+                mm_got := LomsClientMockGetStockInfoParams{ctx, sku}
+
+                if mm_want_ptrs != nil </span><span class="cov0" title="0">{
+
+                        if mm_want_ptrs.ctx != nil &amp;&amp; !minimock.Equal(*mm_want_ptrs.ctx, mm_got.ctx) </span><span class="cov0" title="0">{
+                                mmGetStockInfo.t.Errorf("LomsClientMock.GetStockInfo got unexpected parameter ctx, want: %#v, got: %#v%s\n", *mm_want_ptrs.ctx, mm_got.ctx, minimock.Diff(*mm_want_ptrs.ctx, mm_got.ctx))
+                        }</span>
+
+                        <span class="cov0" title="0">if mm_want_ptrs.sku != nil &amp;&amp; !minimock.Equal(*mm_want_ptrs.sku, mm_got.sku) </span><span class="cov0" title="0">{
+                                mmGetStockInfo.t.Errorf("LomsClientMock.GetStockInfo got unexpected parameter sku, want: %#v, got: %#v%s\n", *mm_want_ptrs.sku, mm_got.sku, minimock.Diff(*mm_want_ptrs.sku, mm_got.sku))
+                        }</span>
+
+                } else<span class="cov0" title="0"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
+                        mmGetStockInfo.t.Errorf("LomsClientMock.GetStockInfo got unexpected parameters, want: %#v, got: %#v%s\n", *mm_want, mm_got, minimock.Diff(*mm_want, mm_got))
+                }</span>
+
+                <span class="cov0" title="0">mm_results := mmGetStockInfo.GetStockInfoMock.defaultExpectation.results
+                if mm_results == nil </span><span class="cov0" title="0">{
+                        mmGetStockInfo.t.Fatal("No results are set for the LomsClientMock.GetStockInfo")
+                }</span>
+                <span class="cov0" title="0">return (*mm_results).u1, (*mm_results).err</span>
+        }
+        <span class="cov1" title="1">if mmGetStockInfo.funcGetStockInfo != nil </span><span class="cov1" title="1">{
+                return mmGetStockInfo.funcGetStockInfo(ctx, sku)
+        }</span>
+        <span class="cov0" title="0">mmGetStockInfo.t.Fatalf("Unexpected call to LomsClientMock.GetStockInfo. %v %v", ctx, sku)
+        return</span>
+}
+
+// GetStockInfoAfterCounter returns a count of finished LomsClientMock.GetStockInfo invocations
+func (mmGetStockInfo *LomsClientMock) GetStockInfoAfterCounter() uint64 <span class="cov1" title="1">{
+        return mm_atomic.LoadUint64(&amp;mmGetStockInfo.afterGetStockInfoCounter)
+}</span>
+
+// GetStockInfoBeforeCounter returns a count of LomsClientMock.GetStockInfo invocations
+func (mmGetStockInfo *LomsClientMock) GetStockInfoBeforeCounter() uint64 <span class="cov0" title="0">{
+        return mm_atomic.LoadUint64(&amp;mmGetStockInfo.beforeGetStockInfoCounter)
+}</span>
+
+// Calls returns a list of arguments used in each call to LomsClientMock.GetStockInfo.
+// The list is in the same order as the calls were made (i.e. recent calls have a higher index)
+func (mmGetStockInfo *mLomsClientMockGetStockInfo) Calls() []*LomsClientMockGetStockInfoParams <span class="cov0" title="0">{
+        mmGetStockInfo.mutex.RLock()
+
+        argCopy := make([]*LomsClientMockGetStockInfoParams, len(mmGetStockInfo.callArgs))
+        copy(argCopy, mmGetStockInfo.callArgs)
+
+        mmGetStockInfo.mutex.RUnlock()
+
+        return argCopy
+}</span>
+
+// MinimockGetStockInfoDone returns true if the count of the GetStockInfo invocations corresponds
+// the number of defined expectations
+func (m *LomsClientMock) MinimockGetStockInfoDone() bool <span class="cov7" title="9">{
+        if m.GetStockInfoMock.optional </span><span class="cov0" title="0">{
+                // Optional methods provide '0 or more' call count restriction.
+                return true
+        }</span>
+
+        <span class="cov7" title="9">for _, e := range m.GetStockInfoMock.expectations </span><span class="cov0" title="0">{
+                if mm_atomic.LoadUint64(&amp;e.Counter) &lt; 1 </span><span class="cov0" title="0">{
+                        return false
+                }</span>
+        }
+
+        <span class="cov7" title="9">return m.GetStockInfoMock.invocationsDone()</span>
+}
+
+// MinimockGetStockInfoInspect logs each unmet expectation
+func (m *LomsClientMock) MinimockGetStockInfoInspect() <span class="cov0" title="0">{
+        for _, e := range m.GetStockInfoMock.expectations </span><span class="cov0" title="0">{
+                if mm_atomic.LoadUint64(&amp;e.Counter) &lt; 1 </span><span class="cov0" title="0">{
+                        m.t.Errorf("Expected call to LomsClientMock.GetStockInfo with params: %#v", *e.params)
+                }</span>
+        }
+
+        <span class="cov0" title="0">afterGetStockInfoCounter := mm_atomic.LoadUint64(&amp;m.afterGetStockInfoCounter)
+        // if default expectation was set then invocations count should be greater than zero
+        if m.GetStockInfoMock.defaultExpectation != nil &amp;&amp; afterGetStockInfoCounter &lt; 1 </span><span class="cov0" title="0">{
+                if m.GetStockInfoMock.defaultExpectation.params == nil </span><span class="cov0" title="0">{
+                        m.t.Error("Expected call to LomsClientMock.GetStockInfo")
+                }</span> else<span class="cov0" title="0"> {
+                        m.t.Errorf("Expected call to LomsClientMock.GetStockInfo with params: %#v", *m.GetStockInfoMock.defaultExpectation.params)
+                }</span>
+        }
+        // if func was set then invocations count should be greater than zero
+        <span class="cov0" title="0">if m.funcGetStockInfo != nil &amp;&amp; afterGetStockInfoCounter &lt; 1 </span><span class="cov0" title="0">{
+                m.t.Error("Expected call to LomsClientMock.GetStockInfo")
+        }</span>
+
+        <span class="cov0" title="0">if !m.GetStockInfoMock.invocationsDone() &amp;&amp; afterGetStockInfoCounter &gt; 0 </span><span class="cov0" title="0">{
+                m.t.Errorf("Expected %d calls to LomsClientMock.GetStockInfo but found %d calls",
+                        mm_atomic.LoadUint64(&amp;m.GetStockInfoMock.expectedInvocations), afterGetStockInfoCounter)
+        }</span>
+}
+
+// MinimockFinish checks that all mocked methods have been called the expected number of times
+func (m *LomsClientMock) MinimockFinish() <span class="cov10" title="20">{
+        m.finishOnce.Do(func() </span><span class="cov7" title="9">{
+                if !m.minimockDone() </span><span class="cov0" title="0">{
+                        m.MinimockCreateOrderInspect()
+
+                        m.MinimockGetStockInfoInspect()
+                }</span>
+        })
+}
+
+// MinimockWait waits for all mocked methods to be called the expected number of times
+func (m *LomsClientMock) MinimockWait(timeout mm_time.Duration) <span class="cov0" title="0">{
+        timeoutCh := mm_time.After(timeout)
+        for </span><span class="cov0" title="0">{
+                if m.minimockDone() </span><span class="cov0" title="0">{
+                        return
+                }</span>
+                <span class="cov0" title="0">select </span>{
+                case &lt;-timeoutCh:<span class="cov0" title="0">
+                        m.MinimockFinish()
+                        return</span>
+                case &lt;-mm_time.After(10 * mm_time.Millisecond):<span class="cov0" title="0"></span>
+                }
+        }
+}
+
+func (m *LomsClientMock) minimockDone() bool <span class="cov7" title="9">{
+        done := true
+        return done &amp;&amp;
+                m.MinimockCreateOrderDone() &amp;&amp;
+                m.MinimockGetStockInfoDone()
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">// Code generated by http://github.com/gojuno/minimock (v3.3.12). DO NOT EDIT.
 
 package mocks
 
@@ -1900,11 +2782,10 @@ package mocks
 
 import (
         "context"
+        "route256/cart/pkg/product"
         "sync"
         mm_atomic "sync/atomic"
         mm_time "time"
-
-        "route256/cart/pkg/product"
 
         "github.com/gojuno/minimock/v3"
 )
@@ -1922,14 +2803,14 @@ type ProductClientMock struct {
 }
 
 // NewProductClientMock returns a mock for service.productClient
-func NewProductClientMock(t minimock.Tester) *ProductClientMock <span class="cov8" title="1">{
+func NewProductClientMock(t minimock.Tester) *ProductClientMock <span class="cov7" title="8">{
         m := &amp;ProductClientMock{t: t}
 
-        if controller, ok := t.(minimock.MockController); ok </span><span class="cov8" title="1">{
+        if controller, ok := t.(minimock.MockController); ok </span><span class="cov7" title="8">{
                 controller.RegisterMocker(m)
         }</span>
 
-        <span class="cov8" title="1">m.GetProductMock = mProductClientMockGetProduct{mock: m}
+        <span class="cov7" title="8">m.GetProductMock = mProductClientMockGetProduct{mock: m}
         m.GetProductMock.callArgs = []*ProductClientMockGetProductParams{}
 
         t.Cleanup(m.MinimockFinish)
@@ -2066,29 +2947,29 @@ func (mmGetProduct *mProductClientMockGetProduct) Inspect(f func(ctx context.Con
 }
 
 // Return sets up results that will be returned by productClient.GetProduct
-func (mmGetProduct *mProductClientMockGetProduct) Return(pp1 *product.Product, err error) *ProductClientMock <span class="cov8" title="1">{
+func (mmGetProduct *mProductClientMockGetProduct) Return(pp1 *product.Product, err error) *ProductClientMock <span class="cov4" title="3">{
         if mmGetProduct.mock.funcGetProduct != nil </span><span class="cov0" title="0">{
                 mmGetProduct.mock.t.Fatalf("ProductClientMock.GetProduct mock is already set by Set")
         }</span>
 
-        <span class="cov8" title="1">if mmGetProduct.defaultExpectation == nil </span><span class="cov8" title="1">{
+        <span class="cov4" title="3">if mmGetProduct.defaultExpectation == nil </span><span class="cov4" title="3">{
                 mmGetProduct.defaultExpectation = &amp;ProductClientMockGetProductExpectation{mock: mmGetProduct.mock}
         }</span>
-        <span class="cov8" title="1">mmGetProduct.defaultExpectation.results = &amp;ProductClientMockGetProductResults{pp1, err}
+        <span class="cov4" title="3">mmGetProduct.defaultExpectation.results = &amp;ProductClientMockGetProductResults{pp1, err}
         return mmGetProduct.mock</span>
 }
 
 // Set uses given function f to mock the productClient.GetProduct method
-func (mmGetProduct *mProductClientMockGetProduct) Set(f func(ctx context.Context, skuID uint32) (pp1 *product.Product, err error)) *ProductClientMock <span class="cov8" title="1">{
+func (mmGetProduct *mProductClientMockGetProduct) Set(f func(ctx context.Context, skuID uint32) (pp1 *product.Product, err error)) *ProductClientMock <span class="cov3" title="2">{
         if mmGetProduct.defaultExpectation != nil </span><span class="cov0" title="0">{
                 mmGetProduct.mock.t.Fatalf("Default expectation is already set for the productClient.GetProduct method")
         }</span>
 
-        <span class="cov8" title="1">if len(mmGetProduct.expectations) &gt; 0 </span><span class="cov0" title="0">{
+        <span class="cov3" title="2">if len(mmGetProduct.expectations) &gt; 0 </span><span class="cov0" title="0">{
                 mmGetProduct.mock.t.Fatalf("Some expectations are already set for the productClient.GetProduct method")
         }</span>
 
-        <span class="cov8" title="1">mmGetProduct.mock.funcGetProduct = f
+        <span class="cov3" title="2">mmGetProduct.mock.funcGetProduct = f
         return mmGetProduct.mock</span>
 }
 
@@ -2122,19 +3003,19 @@ func (mmGetProduct *mProductClientMockGetProduct) Times(n uint64) *mProductClien
         return mmGetProduct</span>
 }
 
-func (mmGetProduct *mProductClientMockGetProduct) invocationsDone() bool <span class="cov8" title="1">{
-        if len(mmGetProduct.expectations) == 0 &amp;&amp; mmGetProduct.defaultExpectation == nil &amp;&amp; mmGetProduct.mock.funcGetProduct == nil </span><span class="cov8" title="1">{
+func (mmGetProduct *mProductClientMockGetProduct) invocationsDone() bool <span class="cov7" title="8">{
+        if len(mmGetProduct.expectations) == 0 &amp;&amp; mmGetProduct.defaultExpectation == nil &amp;&amp; mmGetProduct.mock.funcGetProduct == nil </span><span class="cov4" title="3">{
                 return true
         }</span>
 
-        <span class="cov8" title="1">totalInvocations := mm_atomic.LoadUint64(&amp;mmGetProduct.mock.afterGetProductCounter)
+        <span class="cov5" title="5">totalInvocations := mm_atomic.LoadUint64(&amp;mmGetProduct.mock.afterGetProductCounter)
         expectedInvocations := mm_atomic.LoadUint64(&amp;mmGetProduct.expectedInvocations)
 
         return totalInvocations &gt; 0 &amp;&amp; (expectedInvocations == 0 || expectedInvocations == totalInvocations)</span>
 }
 
 // GetProduct implements service.productClient
-func (mmGetProduct *ProductClientMock) GetProduct(ctx context.Context, skuID uint32) (pp1 *product.Product, err error) <span class="cov8" title="1">{
+func (mmGetProduct *ProductClientMock) GetProduct(ctx context.Context, skuID uint32) (pp1 *product.Product, err error) <span class="cov6" title="6">{
         mm_atomic.AddUint64(&amp;mmGetProduct.beforeGetProductCounter, 1)
         defer mm_atomic.AddUint64(&amp;mmGetProduct.afterGetProductCounter, 1)
 
@@ -2142,7 +3023,7 @@ func (mmGetProduct *ProductClientMock) GetProduct(ctx context.Context, skuID uin
                 mmGetProduct.inspectFuncGetProduct(ctx, skuID)
         }</span>
 
-        <span class="cov8" title="1">mm_params := ProductClientMockGetProductParams{ctx, skuID}
+        <span class="cov6" title="6">mm_params := ProductClientMockGetProductParams{ctx, skuID}
 
         // Record call args
         mmGetProduct.GetProductMock.mutex.Lock()
@@ -2156,7 +3037,7 @@ func (mmGetProduct *ProductClientMock) GetProduct(ctx context.Context, skuID uin
                 }</span>
         }
 
-        <span class="cov8" title="1">if mmGetProduct.GetProductMock.defaultExpectation != nil </span><span class="cov8" title="1">{
+        <span class="cov6" title="6">if mmGetProduct.GetProductMock.defaultExpectation != nil </span><span class="cov4" title="3">{
                 mm_atomic.AddUint64(&amp;mmGetProduct.GetProductMock.defaultExpectation.Counter, 1)
                 mm_want := mmGetProduct.GetProductMock.defaultExpectation.params
                 mm_want_ptrs := mmGetProduct.GetProductMock.defaultExpectation.paramPtrs
@@ -2173,17 +3054,17 @@ func (mmGetProduct *ProductClientMock) GetProduct(ctx context.Context, skuID uin
                                 mmGetProduct.t.Errorf("ProductClientMock.GetProduct got unexpected parameter skuID, want: %#v, got: %#v%s\n", *mm_want_ptrs.skuID, mm_got.skuID, minimock.Diff(*mm_want_ptrs.skuID, mm_got.skuID))
                         }</span>
 
-                } else<span class="cov8" title="1"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
+                } else<span class="cov4" title="3"> if mm_want != nil &amp;&amp; !minimock.Equal(*mm_want, mm_got) </span><span class="cov0" title="0">{
                         mmGetProduct.t.Errorf("ProductClientMock.GetProduct got unexpected parameters, want: %#v, got: %#v%s\n", *mm_want, mm_got, minimock.Diff(*mm_want, mm_got))
                 }</span>
 
-                <span class="cov8" title="1">mm_results := mmGetProduct.GetProductMock.defaultExpectation.results
+                <span class="cov4" title="3">mm_results := mmGetProduct.GetProductMock.defaultExpectation.results
                 if mm_results == nil </span><span class="cov0" title="0">{
                         mmGetProduct.t.Fatal("No results are set for the ProductClientMock.GetProduct")
                 }</span>
-                <span class="cov8" title="1">return (*mm_results).pp1, (*mm_results).err</span>
+                <span class="cov4" title="3">return (*mm_results).pp1, (*mm_results).err</span>
         }
-        <span class="cov8" title="1">if mmGetProduct.funcGetProduct != nil </span><span class="cov8" title="1">{
+        <span class="cov4" title="3">if mmGetProduct.funcGetProduct != nil </span><span class="cov4" title="3">{
                 return mmGetProduct.funcGetProduct(ctx, skuID)
         }</span>
         <span class="cov0" title="0">mmGetProduct.t.Fatalf("Unexpected call to ProductClientMock.GetProduct. %v %v", ctx, skuID)
@@ -2215,19 +3096,19 @@ func (mmGetProduct *mProductClientMockGetProduct) Calls() []*ProductClientMockGe
 
 // MinimockGetProductDone returns true if the count of the GetProduct invocations corresponds
 // the number of defined expectations
-func (m *ProductClientMock) MinimockGetProductDone() bool <span class="cov8" title="1">{
+func (m *ProductClientMock) MinimockGetProductDone() bool <span class="cov7" title="8">{
         if m.GetProductMock.optional </span><span class="cov0" title="0">{
                 // Optional methods provide '0 or more' call count restriction.
                 return true
         }</span>
 
-        <span class="cov8" title="1">for _, e := range m.GetProductMock.expectations </span><span class="cov0" title="0">{
+        <span class="cov7" title="8">for _, e := range m.GetProductMock.expectations </span><span class="cov0" title="0">{
                 if mm_atomic.LoadUint64(&amp;e.Counter) &lt; 1 </span><span class="cov0" title="0">{
                         return false
                 }</span>
         }
 
-        <span class="cov8" title="1">return m.GetProductMock.invocationsDone()</span>
+        <span class="cov7" title="8">return m.GetProductMock.invocationsDone()</span>
 }
 
 // MinimockGetProductInspect logs each unmet expectation
@@ -2259,8 +3140,8 @@ func (m *ProductClientMock) MinimockGetProductInspect() <span class="cov0" title
 }
 
 // MinimockFinish checks that all mocked methods have been called the expected number of times
-func (m *ProductClientMock) MinimockFinish() <span class="cov8" title="1">{
-        m.finishOnce.Do(func() </span><span class="cov8" title="1">{
+func (m *ProductClientMock) MinimockFinish() <span class="cov10" title="22">{
+        m.finishOnce.Do(func() </span><span class="cov7" title="8">{
                 if !m.minimockDone() </span><span class="cov0" title="0">{
                         m.MinimockGetProductInspect()
                 }</span>
@@ -2283,26 +3164,32 @@ func (m *ProductClientMock) MinimockWait(timeout mm_time.Duration) <span class="
         }
 }
 
-func (m *ProductClientMock) minimockDone() bool <span class="cov8" title="1">{
+func (m *ProductClientMock) minimockDone() bool <span class="cov7" title="8">{
         done := true
         return done &amp;&amp;
                 m.MinimockGetProductDone()
 }</span>
 </pre>
 		
-		<pre class="file" id="file7" style="display: none">package service
+		<pre class="file" id="file9" style="display: none">package service
 
 import (
         "context"
         "fmt"
         "sort"
+        "sync"
 
         "route256/cart/internal/models"
+        "route256/cart/pkg/errgroup"
+        "route256/cart/pkg/loms"
         "route256/cart/pkg/product"
 )
 
+const countGoRoutines = 10
+
 //go:generate minimock -i cartRepository -o ./mocks/ -s _mock.go
 //go:generate minimock -i productClient -o ./mocks/ -s _mock.go
+//go:generate minimock -i lomsClient -o ./mocks/ -s _mock.go
 type cartRepository interface {
         AddItemToUserCart(ctx context.Context, cart models.CartRequest) error
         DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error
@@ -2314,74 +3201,302 @@ type productClient interface {
         GetProduct(ctx context.Context, skuID uint32) (*product.Product, error)
 }
 
+type lomsClient interface {
+        CreateOrder(ctx context.Context, userID int64, items []loms.OrderItem) (int64, error)
+        GetStockInfo(ctx context.Context, sku uint32) (uint64, error)
+}
+
 type Service struct {
         repo          cartRepository
         productClient productClient
+        lomsClient    lomsClient
 }
 
-func NewService(repo cartRepository, productClient productClient) *Service <span class="cov8" title="1">{
-        return &amp;Service{repo: repo, productClient: productClient}
+func NewService(repo cartRepository, productClient productClient, lomsClient lomsClient) *Service <span class="cov10" title="8">{
+        return &amp;Service{repo: repo, productClient: productClient, lomsClient: lomsClient}
 }</span>
 
-func (s *Service) AddItemToUserCart(ctx context.Context, cart models.CartRequest) error <span class="cov8" title="1">{
+func (s *Service) CreateOrder(ctx context.Context, userID int64) (int64, error) <span class="cov0" title="0">{
+        items, err := s.repo.ListUserCart(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to list user cart: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">stockInfo := make([]models.CartRequest, len(items))
+        for i, item := range items </span><span class="cov0" title="0">{
+                count, err := s.lomsClient.GetStockInfo(ctx, uint32(item.SkuID))
+                if err != nil </span><span class="cov0" title="0">{
+                        return 0, fmt.Errorf("failed to get stock info: %w", err)
+                }</span>
+
+                <span class="cov0" title="0">stockInfo[i].Count = uint16(count)
+                if stockInfo[i].Count &lt; item.Count || stockInfo[i].Count == 0 </span><span class="cov0" title="0">{
+                        return 0, fmt.Errorf("stock is not enough")
+                }</span>
+
+                <span class="cov0" title="0">stockInfo[i].SkuID = item.SkuID
+                stockInfo[i].UserID = userID</span>
+        }
+
+        <span class="cov0" title="0">return s.lomsClient.CreateOrder(ctx, userID, models.CartRequestToCartOrder(stockInfo))</span>
+}
+
+func (s *Service) AddItemToUserCart(ctx context.Context, cart models.CartRequest) error <span class="cov5" title="3">{
         checkProduct, err := s.productClient.GetProduct(ctx, uint32(cart.SkuID))
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov1" title="1">{
                 return fmt.Errorf("failed to get product: %w", err)
         }</span>
 
-        <span class="cov8" title="1">if checkProduct == nil </span><span class="cov8" title="1">{
+        <span class="cov4" title="2">if checkProduct == nil </span><span class="cov1" title="1">{
                 return fmt.Errorf("product not found")
         }</span>
 
-        <span class="cov8" title="1">return s.repo.AddItemToUserCart(ctx, cart)</span>
+        <span class="cov1" title="1">count, err := s.lomsClient.GetStockInfo(ctx, uint32(cart.SkuID))
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to get stock info: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">if uint16(count) &lt; cart.Count || count == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("stock is not enough")
+        }</span>
+
+        <span class="cov1" title="1">return s.repo.AddItemToUserCart(ctx, cart)</span>
 }
 
-func (s *Service) DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error <span class="cov8" title="1">{
+func (s *Service) DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error <span class="cov1" title="1">{
         return s.repo.DeleteItemFromUserCart(ctx, userID, skuID)
 }</span>
 
-func (s *Service) ClearUserCart(ctx context.Context, userID int64) error <span class="cov8" title="1">{
+func (s *Service) ClearUserCart(ctx context.Context, userID int64) error <span class="cov1" title="1">{
         return s.repo.ClearUserCart(ctx, userID)
 }</span>
 
-func (s *Service) ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, uint32, error) <span class="cov8" title="1">{
+func (s *Service) ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, uint32, error) <span class="cov5" title="3">{
         items, err := s.repo.ListUserCart(ctx, userID)
-        if err != nil </span><span class="cov8" title="1">{
+        if err != nil </span><span class="cov1" title="1">{
                 return nil, 0, fmt.Errorf("failed to list cart: %w", err)
         }</span>
 
-        <span class="cov8" title="1">cartItems := make([]models.CartItem, 0, len(items))
-        totalPrice := uint32(0)
+        <span class="cov4" title="2">var (
+                cartItems  = make([]models.CartItem, len(items))
+                totalPrice uint32
+                mu         sync.Mutex
+                g          = errgroup.NewGroup(countGoRoutines)
+        )
 
-        for _, item := range items </span><span class="cov8" title="1">{
-                p, err := s.productClient.GetProduct(ctx, uint32(item.SkuID))
-                if err != nil </span><span class="cov8" title="1">{
-                        return nil, 0, fmt.Errorf("failed to get p: %w", err)
-                }</span>
+        for i, item := range items </span><span class="cov5" title="3">{
+                g.Go(func() error </span><span class="cov5" title="3">{
+                        p, err := s.productClient.GetProduct(ctx, uint32(item.SkuID))
+                        if err != nil </span><span class="cov1" title="1">{
+                                return fmt.Errorf("failed to get product: %w", err)
+                        }</span>
+                        <span class="cov4" title="2">if p == nil </span><span class="cov0" title="0">{
+                                return nil
+                        }</span>
 
-                <span class="cov8" title="1">if p == nil </span><span class="cov0" title="0">{
-                        continue</span>
-                }
-
-                <span class="cov8" title="1">cartItems = append(cartItems, models.CartItem{
-                        SkuID: item.SkuID,
-                        Name:  p.Name,
-                        Count: item.Count,
-                        Price: p.Price,
+                        <span class="cov4" title="2">mu.Lock()
+                        cartItems[i] = models.CartItem{
+                                SkuID: item.SkuID,
+                                Name:  p.Name,
+                                Count: item.Count,
+                                Price: p.Price,
+                        }
+                        totalPrice += p.Price * uint32(item.Count)
+                        mu.Unlock()
+                        return nil</span>
                 })
-
-                totalPrice += p.Price * uint32(item.Count)</span>
         }
 
-        <span class="cov8" title="1">sort.Slice(cartItems, func(i, j int) bool </span><span class="cov8" title="1">{
+        <span class="cov4" title="2">if err := g.Wait(); err != nil </span><span class="cov1" title="1">{
+                return nil, 0, fmt.Errorf("failed to get products: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">sort.Slice(cartItems, func(i, j int) bool </span><span class="cov1" title="1">{
                 return cartItems[i].SkuID &lt; cartItems[j].SkuID
         }</span>)
 
-        <span class="cov8" title="1">return cartItems, totalPrice, nil</span>
+        <span class="cov1" title="1">return cartItems, totalPrice, nil</span>
 }
 </pre>
 		
-		<pre class="file" id="file8" style="display: none">package product
+		<pre class="file" id="file10" style="display: none">package errgroup
+
+import (
+        "sync"
+)
+
+type Group struct {
+        wg      sync.WaitGroup
+        err     error
+        errOnce sync.Once
+        sem     chan struct{}
+}
+
+func NewGroup(limit int) *Group <span class="cov7" title="3">{
+        return &amp;Group{
+                sem: make(chan struct{}, limit),
+        }
+}</span>
+
+func (g *Group) done() <span class="cov10" title="5">{
+        &lt;-g.sem
+        g.wg.Done()
+}</span>
+
+func (g *Group) Go(f func() error) <span class="cov10" title="5">{
+        g.sem &lt;- struct{}{}
+        g.wg.Add(1)
+        go func() </span><span class="cov10" title="5">{
+                defer g.done()
+                if err := f(); err != nil </span><span class="cov1" title="1">{
+                        g.errOnce.Do(func() </span><span class="cov1" title="1">{
+                                g.err = err
+                        }</span>)
+                }
+        }()
+}
+
+func (g *Group) Wait() error <span class="cov7" title="3">{
+        g.wg.Wait()
+
+        return g.err
+}</span>
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package loms
+
+import (
+        "route256/cart/proto"
+
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/credentials/insecure"
+)
+
+type Client struct {
+        host       string
+        dialOption grpc.DialOption
+        client     proto.LomsServiceClient
+        conn       *grpc.ClientConn
+}
+
+func NewClient(host string) *Client <span class="cov0" title="0">{
+        return &amp;Client{
+                host:       host,
+                dialOption: grpc.WithTransportCredentials(insecure.NewCredentials()),
+        }
+}</span>
+
+func (c *Client) Run() error <span class="cov0" title="0">{
+        conn, err := grpc.NewClient(c.host, c.dialOption)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">c.conn = conn
+        c.client = proto.NewLomsServiceClient(conn)
+
+        return nil</span>
+}
+
+func (c *Client) Close() <span class="cov0" title="0">{
+        if c.conn != nil </span><span class="cov0" title="0">{
+                c.conn.Close()
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package loms
+
+import (
+        "context"
+        "fmt"
+
+        "route256/cart/proto"
+)
+
+type OrderItem struct {
+        SkuID    uint64
+        Quantity uint32
+}
+
+func orderItemsToProto(items []OrderItem) []*proto.OrderItem <span class="cov0" title="0">{
+        res := make([]*proto.OrderItem, len(items))
+
+        for i, item := range items </span><span class="cov0" title="0">{
+                res[i] = &amp;proto.OrderItem{
+                        SkuId:    item.SkuID,
+                        Quantity: item.Quantity,
+                }
+        }</span>
+
+        <span class="cov0" title="0">return res</span>
+}
+
+func (c *Client) CreateOrder(ctx context.Context, userID int64, items []OrderItem) (int64, error) <span class="cov0" title="0">{
+        req := &amp;proto.CreateOrderRequest{
+                User:  userID,
+                Items: orderItemsToProto(items),
+        }
+
+        res, err := c.client.CreateOrder(ctx, req)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to create order: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return res.OrderID, nil</span>
+}
+
+func (c *Client) GetOrder(ctx context.Context, orderID int64) (*proto.OrderInfoResponse, error) <span class="cov0" title="0">{
+        req := &amp;proto.OrderInfoRequest{
+                OrderID: orderID,
+        }
+
+        res, err := c.client.GetOrder(ctx, req)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get order: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return res, nil</span>
+}
+
+func (c *Client) GetStockInfo(ctx context.Context, sku uint32) (uint64, error) <span class="cov0" title="0">{
+        req := &amp;proto.StockInfoRequest{
+                Sku: sku,
+        }
+
+        res, err := c.client.GetStockInfo(ctx, req)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to get stock info: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return res.Count, nil</span>
+}
+
+func (c *Client) OrderPay(ctx context.Context, orderID int64) error <span class="cov0" title="0">{
+        req := &amp;proto.OrderPayRequest{
+                OrderID: orderID,
+        }
+        _, err := c.client.OrderPay(ctx, req)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to pay for order: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (c *Client) DeleteOrder(ctx context.Context, orderID int64) error <span class="cov0" title="0">{
+        req := &amp;proto.OrderInfoRequest{
+                OrderID: orderID,
+        }
+        _, err := c.client.DeleteOrder(ctx, req)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete order: %w", err)
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package product
 
 import (
         "bytes"
@@ -2390,23 +3505,30 @@ import (
         "fmt"
         "net/http"
         "time"
+
+        "route256/cart/cmd/config"
 )
 
 type Client struct {
-        baseURL string
-        token   string
-        client  *http.Client
+        baseURL     string
+        token       string
+        client      *http.Client
+        rateLimiter *time.Ticker
 }
 
-func NewClient(baseURL, token string, timeout time.Duration) *Client <span class="cov8" title="1">{
-        return &amp;Client{
-                baseURL: baseURL,
-                token:   token,
-                client: &amp;http.Client{
-                        Timeout: timeout,
-                },
-        }
-}</span>
+func NewClient(cfg config.ProductClient) (*Client, error) <span class="cov1" title="1">{
+        productClientTimeout, err := time.ParseDuration(cfg.Timeout + "s")
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse product client timeout: %w", err)
+        }</span>
+
+        <span class="cov1" title="1">return &amp;Client{
+                baseURL:     cfg.Host,
+                token:       cfg.Token,
+                client:      &amp;http.Client{Timeout: productClientTimeout},
+                rateLimiter: time.NewTicker(time.Second / time.Duration(cfg.Rps)),
+        }, nil</span>
+}
 
 type Product struct {
         Name  string `json:"name"`
@@ -2418,15 +3540,21 @@ type Response struct {
         Message string `json:"message"`
 }
 
-type ProductRequest struct {
+type Request struct {
         Token string `json:"token"`
         SkuID uint32 `json:"sku"`
 }
 
-func (c *Client) GetProduct(ctx context.Context, skuID uint32) (*Product, error) <span class="cov8" title="1">{
-        url := fmt.Sprintf("%s/get_product", c.baseURL)
+func (c *Client) GetProduct(ctx context.Context, skuID uint32) (*Product, error) <span class="cov10" title="2">{
+        select </span>{
+        case &lt;-ctx.Done():<span class="cov0" title="0">
+                return nil, ctx.Err()</span>
+        case &lt;-c.rateLimiter.C:<span class="cov10" title="2"></span>
+        }
 
-        requestBody, err := json.Marshal(ProductRequest{
+        <span class="cov10" title="2">url := fmt.Sprintf("%s/get_product", c.baseURL)
+
+        requestBody, err := json.Marshal(Request{
                 Token: c.token,
                 SkuID: skuID,
         })
@@ -2434,48 +3562,982 @@ func (c *Client) GetProduct(ctx context.Context, skuID uint32) (*Product, error)
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(requestBody))
+        <span class="cov10" title="2">req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(requestBody))
         if err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to create request: %w", err)
         }</span>
-        <span class="cov8" title="1">resp, err := c.client.Do(req)
+        <span class="cov10" title="2">resp, err := c.client.Do(req)
         if err != nil </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to send request: %w", err)
         }</span>
-        <span class="cov8" title="1">defer resp.Body.Close() //nolint:errcheck
+        <span class="cov10" title="2">defer resp.Body.Close() //nolint:errcheck
 
         if resp.StatusCode != http.StatusOK </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("failed to get product: %s", resp.Status)
         }</span>
 
-        <span class="cov8" title="1">var response Response
+        <span class="cov10" title="2">var response Response
         if err := json.NewDecoder(resp.Body).Decode(&amp;response); err != nil </span><span class="cov0" title="0">{
                 return nil, err
         }</span>
 
-        <span class="cov8" title="1">if response.Message == "sku not found" </span><span class="cov0" title="0">{
+        <span class="cov10" title="2">if response.Message == "sku not found" </span><span class="cov0" title="0">{
                 return nil, fmt.Errorf("product not found")
         }</span>
 
-        <span class="cov8" title="1">return &amp;response.Product, nil</span>
+        <span class="cov10" title="2">return &amp;response.Product, nil</span>
 }
 </pre>
 		
-		<pre class="file" id="file9" style="display: none">package handler
+		<pre class="file" id="file14" style="display: none">// Code generated by protoc-gen-go. DO NOT EDIT.
+// versions:
+//         protoc-gen-go v1.34.2
+//         protoc        v5.27.0
+// source: loms.proto
+
+package proto
+
+import (
+        reflect "reflect"
+        sync "sync"
+
+        _ "github.com/envoyproxy/protoc-gen-validate/validate"
+        protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+        protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+        emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+const (
+        // Verify that this generated code is sufficiently up-to-date.
+        _ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
+        // Verify that runtime/protoimpl is sufficiently up-to-date.
+        _ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
+)
+
+type CreateOrderRequest struct {
+        state         protoimpl.MessageState
+        sizeCache     protoimpl.SizeCache
+        unknownFields protoimpl.UnknownFields
+
+        User  int64        `protobuf:"varint,1,opt,name=user,proto3" json:"user,omitempty"`
+        Items []*OrderItem `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+}
+
+func (x *CreateOrderRequest) Reset() <span class="cov0" title="0">{
+        *x = CreateOrderRequest{}
+        if protoimpl.UnsafeEnabled </span><span class="cov0" title="0">{
+                mi := &amp;file_loms_proto_msgTypes[0]
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                ms.StoreMessageInfo(mi)
+        }</span>
+}
+
+func (x *CreateOrderRequest) String() string <span class="cov0" title="0">{
+        return protoimpl.X.MessageStringOf(x)
+}</span>
+
+func (*CreateOrderRequest) ProtoMessage() {<span class="cov0" title="0">}</span>
+
+func (x *CreateOrderRequest) ProtoReflect() protoreflect.Message <span class="cov0" title="0">{
+        mi := &amp;file_loms_proto_msgTypes[0]
+        if protoimpl.UnsafeEnabled &amp;&amp; x != nil </span><span class="cov0" title="0">{
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                if ms.LoadMessageInfo() == nil </span><span class="cov0" title="0">{
+                        ms.StoreMessageInfo(mi)
+                }</span>
+                <span class="cov0" title="0">return ms</span>
+        }
+        <span class="cov0" title="0">return mi.MessageOf(x)</span>
+}
+
+// Deprecated: Use CreateOrderRequest.ProtoReflect.Descriptor instead.
+func (*CreateOrderRequest) Descriptor() ([]byte, []int) <span class="cov0" title="0">{
+        return file_loms_proto_rawDescGZIP(), []int{0}
+}</span>
+
+func (x *CreateOrderRequest) GetUser() int64 <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.User
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (x *CreateOrderRequest) GetItems() []*OrderItem <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.Items
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+type CreateOrderResponse struct {
+        state         protoimpl.MessageState
+        sizeCache     protoimpl.SizeCache
+        unknownFields protoimpl.UnknownFields
+
+        OrderID int64 `protobuf:"varint,1,opt,name=orderID,proto3" json:"orderID,omitempty"`
+}
+
+func (x *CreateOrderResponse) Reset() <span class="cov0" title="0">{
+        *x = CreateOrderResponse{}
+        if protoimpl.UnsafeEnabled </span><span class="cov0" title="0">{
+                mi := &amp;file_loms_proto_msgTypes[1]
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                ms.StoreMessageInfo(mi)
+        }</span>
+}
+
+func (x *CreateOrderResponse) String() string <span class="cov0" title="0">{
+        return protoimpl.X.MessageStringOf(x)
+}</span>
+
+func (*CreateOrderResponse) ProtoMessage() {<span class="cov0" title="0">}</span>
+
+func (x *CreateOrderResponse) ProtoReflect() protoreflect.Message <span class="cov0" title="0">{
+        mi := &amp;file_loms_proto_msgTypes[1]
+        if protoimpl.UnsafeEnabled &amp;&amp; x != nil </span><span class="cov0" title="0">{
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                if ms.LoadMessageInfo() == nil </span><span class="cov0" title="0">{
+                        ms.StoreMessageInfo(mi)
+                }</span>
+                <span class="cov0" title="0">return ms</span>
+        }
+        <span class="cov0" title="0">return mi.MessageOf(x)</span>
+}
+
+// Deprecated: Use CreateOrderResponse.ProtoReflect.Descriptor instead.
+func (*CreateOrderResponse) Descriptor() ([]byte, []int) <span class="cov0" title="0">{
+        return file_loms_proto_rawDescGZIP(), []int{1}
+}</span>
+
+func (x *CreateOrderResponse) GetOrderID() int64 <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.OrderID
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+type OrderInfoRequest struct {
+        state         protoimpl.MessageState
+        sizeCache     protoimpl.SizeCache
+        unknownFields protoimpl.UnknownFields
+
+        OrderID int64 `protobuf:"varint,1,opt,name=orderID,proto3" json:"orderID,omitempty"`
+}
+
+func (x *OrderInfoRequest) Reset() <span class="cov0" title="0">{
+        *x = OrderInfoRequest{}
+        if protoimpl.UnsafeEnabled </span><span class="cov0" title="0">{
+                mi := &amp;file_loms_proto_msgTypes[2]
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                ms.StoreMessageInfo(mi)
+        }</span>
+}
+
+func (x *OrderInfoRequest) String() string <span class="cov0" title="0">{
+        return protoimpl.X.MessageStringOf(x)
+}</span>
+
+func (*OrderInfoRequest) ProtoMessage() {<span class="cov0" title="0">}</span>
+
+func (x *OrderInfoRequest) ProtoReflect() protoreflect.Message <span class="cov0" title="0">{
+        mi := &amp;file_loms_proto_msgTypes[2]
+        if protoimpl.UnsafeEnabled &amp;&amp; x != nil </span><span class="cov0" title="0">{
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                if ms.LoadMessageInfo() == nil </span><span class="cov0" title="0">{
+                        ms.StoreMessageInfo(mi)
+                }</span>
+                <span class="cov0" title="0">return ms</span>
+        }
+        <span class="cov0" title="0">return mi.MessageOf(x)</span>
+}
+
+// Deprecated: Use OrderInfoRequest.ProtoReflect.Descriptor instead.
+func (*OrderInfoRequest) Descriptor() ([]byte, []int) <span class="cov0" title="0">{
+        return file_loms_proto_rawDescGZIP(), []int{2}
+}</span>
+
+func (x *OrderInfoRequest) GetOrderID() int64 <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.OrderID
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+type OrderInfoResponse struct {
+        state         protoimpl.MessageState
+        sizeCache     protoimpl.SizeCache
+        unknownFields protoimpl.UnknownFields
+
+        Status string       `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+        User   int64        `protobuf:"varint,2,opt,name=user,proto3" json:"user,omitempty"`
+        Items  []*OrderItem `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+}
+
+func (x *OrderInfoResponse) Reset() <span class="cov0" title="0">{
+        *x = OrderInfoResponse{}
+        if protoimpl.UnsafeEnabled </span><span class="cov0" title="0">{
+                mi := &amp;file_loms_proto_msgTypes[3]
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                ms.StoreMessageInfo(mi)
+        }</span>
+}
+
+func (x *OrderInfoResponse) String() string <span class="cov0" title="0">{
+        return protoimpl.X.MessageStringOf(x)
+}</span>
+
+func (*OrderInfoResponse) ProtoMessage() {<span class="cov0" title="0">}</span>
+
+func (x *OrderInfoResponse) ProtoReflect() protoreflect.Message <span class="cov0" title="0">{
+        mi := &amp;file_loms_proto_msgTypes[3]
+        if protoimpl.UnsafeEnabled &amp;&amp; x != nil </span><span class="cov0" title="0">{
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                if ms.LoadMessageInfo() == nil </span><span class="cov0" title="0">{
+                        ms.StoreMessageInfo(mi)
+                }</span>
+                <span class="cov0" title="0">return ms</span>
+        }
+        <span class="cov0" title="0">return mi.MessageOf(x)</span>
+}
+
+// Deprecated: Use OrderInfoResponse.ProtoReflect.Descriptor instead.
+func (*OrderInfoResponse) Descriptor() ([]byte, []int) <span class="cov0" title="0">{
+        return file_loms_proto_rawDescGZIP(), []int{3}
+}</span>
+
+func (x *OrderInfoResponse) GetStatus() string <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.Status
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+func (x *OrderInfoResponse) GetUser() int64 <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.User
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (x *OrderInfoResponse) GetItems() []*OrderItem <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.Items
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+type StockInfoRequest struct {
+        state         protoimpl.MessageState
+        sizeCache     protoimpl.SizeCache
+        unknownFields protoimpl.UnknownFields
+
+        Sku uint32 `protobuf:"varint,1,opt,name=sku,proto3" json:"sku,omitempty"`
+}
+
+func (x *StockInfoRequest) Reset() <span class="cov0" title="0">{
+        *x = StockInfoRequest{}
+        if protoimpl.UnsafeEnabled </span><span class="cov0" title="0">{
+                mi := &amp;file_loms_proto_msgTypes[4]
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                ms.StoreMessageInfo(mi)
+        }</span>
+}
+
+func (x *StockInfoRequest) String() string <span class="cov0" title="0">{
+        return protoimpl.X.MessageStringOf(x)
+}</span>
+
+func (*StockInfoRequest) ProtoMessage() {<span class="cov0" title="0">}</span>
+
+func (x *StockInfoRequest) ProtoReflect() protoreflect.Message <span class="cov0" title="0">{
+        mi := &amp;file_loms_proto_msgTypes[4]
+        if protoimpl.UnsafeEnabled &amp;&amp; x != nil </span><span class="cov0" title="0">{
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                if ms.LoadMessageInfo() == nil </span><span class="cov0" title="0">{
+                        ms.StoreMessageInfo(mi)
+                }</span>
+                <span class="cov0" title="0">return ms</span>
+        }
+        <span class="cov0" title="0">return mi.MessageOf(x)</span>
+}
+
+// Deprecated: Use StockInfoRequest.ProtoReflect.Descriptor instead.
+func (*StockInfoRequest) Descriptor() ([]byte, []int) <span class="cov0" title="0">{
+        return file_loms_proto_rawDescGZIP(), []int{4}
+}</span>
+
+func (x *StockInfoRequest) GetSku() uint32 <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.Sku
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+type StockInfoResponse struct {
+        state         protoimpl.MessageState
+        sizeCache     protoimpl.SizeCache
+        unknownFields protoimpl.UnknownFields
+
+        Count uint64 `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
+}
+
+func (x *StockInfoResponse) Reset() <span class="cov0" title="0">{
+        *x = StockInfoResponse{}
+        if protoimpl.UnsafeEnabled </span><span class="cov0" title="0">{
+                mi := &amp;file_loms_proto_msgTypes[5]
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                ms.StoreMessageInfo(mi)
+        }</span>
+}
+
+func (x *StockInfoResponse) String() string <span class="cov0" title="0">{
+        return protoimpl.X.MessageStringOf(x)
+}</span>
+
+func (*StockInfoResponse) ProtoMessage() {<span class="cov0" title="0">}</span>
+
+func (x *StockInfoResponse) ProtoReflect() protoreflect.Message <span class="cov0" title="0">{
+        mi := &amp;file_loms_proto_msgTypes[5]
+        if protoimpl.UnsafeEnabled &amp;&amp; x != nil </span><span class="cov0" title="0">{
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                if ms.LoadMessageInfo() == nil </span><span class="cov0" title="0">{
+                        ms.StoreMessageInfo(mi)
+                }</span>
+                <span class="cov0" title="0">return ms</span>
+        }
+        <span class="cov0" title="0">return mi.MessageOf(x)</span>
+}
+
+// Deprecated: Use StockInfoResponse.ProtoReflect.Descriptor instead.
+func (*StockInfoResponse) Descriptor() ([]byte, []int) <span class="cov0" title="0">{
+        return file_loms_proto_rawDescGZIP(), []int{5}
+}</span>
+
+func (x *StockInfoResponse) GetCount() uint64 <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.Count
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+type OrderPayRequest struct {
+        state         protoimpl.MessageState
+        sizeCache     protoimpl.SizeCache
+        unknownFields protoimpl.UnknownFields
+
+        OrderID int64 `protobuf:"varint,1,opt,name=orderID,proto3" json:"orderID,omitempty"`
+}
+
+func (x *OrderPayRequest) Reset() <span class="cov0" title="0">{
+        *x = OrderPayRequest{}
+        if protoimpl.UnsafeEnabled </span><span class="cov0" title="0">{
+                mi := &amp;file_loms_proto_msgTypes[6]
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                ms.StoreMessageInfo(mi)
+        }</span>
+}
+
+func (x *OrderPayRequest) String() string <span class="cov0" title="0">{
+        return protoimpl.X.MessageStringOf(x)
+}</span>
+
+func (*OrderPayRequest) ProtoMessage() {<span class="cov0" title="0">}</span>
+
+func (x *OrderPayRequest) ProtoReflect() protoreflect.Message <span class="cov0" title="0">{
+        mi := &amp;file_loms_proto_msgTypes[6]
+        if protoimpl.UnsafeEnabled &amp;&amp; x != nil </span><span class="cov0" title="0">{
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                if ms.LoadMessageInfo() == nil </span><span class="cov0" title="0">{
+                        ms.StoreMessageInfo(mi)
+                }</span>
+                <span class="cov0" title="0">return ms</span>
+        }
+        <span class="cov0" title="0">return mi.MessageOf(x)</span>
+}
+
+// Deprecated: Use OrderPayRequest.ProtoReflect.Descriptor instead.
+func (*OrderPayRequest) Descriptor() ([]byte, []int) <span class="cov0" title="0">{
+        return file_loms_proto_rawDescGZIP(), []int{6}
+}</span>
+
+func (x *OrderPayRequest) GetOrderID() int64 <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.OrderID
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+type OrderItem struct {
+        state         protoimpl.MessageState
+        sizeCache     protoimpl.SizeCache
+        unknownFields protoimpl.UnknownFields
+
+        SkuId    uint64 `protobuf:"varint,1,opt,name=sku_id,json=skuId,proto3" json:"sku_id,omitempty"`
+        Quantity uint32 `protobuf:"varint,2,opt,name=quantity,proto3" json:"quantity,omitempty"`
+}
+
+func (x *OrderItem) Reset() <span class="cov0" title="0">{
+        *x = OrderItem{}
+        if protoimpl.UnsafeEnabled </span><span class="cov0" title="0">{
+                mi := &amp;file_loms_proto_msgTypes[7]
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                ms.StoreMessageInfo(mi)
+        }</span>
+}
+
+func (x *OrderItem) String() string <span class="cov0" title="0">{
+        return protoimpl.X.MessageStringOf(x)
+}</span>
+
+func (*OrderItem) ProtoMessage() {<span class="cov0" title="0">}</span>
+
+func (x *OrderItem) ProtoReflect() protoreflect.Message <span class="cov0" title="0">{
+        mi := &amp;file_loms_proto_msgTypes[7]
+        if protoimpl.UnsafeEnabled &amp;&amp; x != nil </span><span class="cov0" title="0">{
+                ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+                if ms.LoadMessageInfo() == nil </span><span class="cov0" title="0">{
+                        ms.StoreMessageInfo(mi)
+                }</span>
+                <span class="cov0" title="0">return ms</span>
+        }
+        <span class="cov0" title="0">return mi.MessageOf(x)</span>
+}
+
+// Deprecated: Use OrderItem.ProtoReflect.Descriptor instead.
+func (*OrderItem) Descriptor() ([]byte, []int) <span class="cov0" title="0">{
+        return file_loms_proto_rawDescGZIP(), []int{7}
+}</span>
+
+func (x *OrderItem) GetSkuId() uint64 <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.SkuId
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+func (x *OrderItem) GetQuantity() uint32 <span class="cov0" title="0">{
+        if x != nil </span><span class="cov0" title="0">{
+                return x.Quantity
+        }</span>
+        <span class="cov0" title="0">return 0</span>
+}
+
+var File_loms_proto protoreflect.FileDescriptor
+
+var file_loms_proto_rawDesc = []byte{
+        0x0a, 0x0a, 0x6c, 0x6f, 0x6d, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x04, 0x6c, 0x6f,
+        0x6d, 0x73, 0x1a, 0x17, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2f, 0x76, 0x61, 0x6c,
+        0x69, 0x64, 0x61, 0x74, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1b, 0x67, 0x6f, 0x6f,
+        0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x65, 0x6d, 0x70,
+        0x74, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x62, 0x0a, 0x12, 0x43, 0x72, 0x65, 0x61,
+        0x74, 0x65, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1b,
+        0x0a, 0x04, 0x75, 0x73, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x42, 0x07, 0xfa, 0x42,
+        0x04, 0x22, 0x02, 0x20, 0x00, 0x52, 0x04, 0x75, 0x73, 0x65, 0x72, 0x12, 0x2f, 0x0a, 0x05, 0x69,
+        0x74, 0x65, 0x6d, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x6c, 0x6f, 0x6d,
+        0x73, 0x2e, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x74, 0x65, 0x6d, 0x42, 0x08, 0xfa, 0x42, 0x05,
+        0x92, 0x01, 0x02, 0x08, 0x01, 0x52, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x22, 0x2f, 0x0a, 0x13,
+        0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f,
+        0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x6f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x44, 0x18, 0x01,
+        0x20, 0x01, 0x28, 0x03, 0x52, 0x07, 0x6f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x44, 0x22, 0x35, 0x0a,
+        0x10, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+        0x74, 0x12, 0x21, 0x0a, 0x07, 0x6f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01,
+        0x28, 0x03, 0x42, 0x07, 0xfa, 0x42, 0x04, 0x22, 0x02, 0x20, 0x00, 0x52, 0x07, 0x6f, 0x72, 0x64,
+        0x65, 0x72, 0x49, 0x44, 0x22, 0x66, 0x0a, 0x11, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x6e, 0x66,
+        0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61,
+        0x74, 0x75, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75,
+        0x73, 0x12, 0x12, 0x0a, 0x04, 0x75, 0x73, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52,
+        0x04, 0x75, 0x73, 0x65, 0x72, 0x12, 0x25, 0x0a, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x18, 0x03,
+        0x20, 0x03, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x6c, 0x6f, 0x6d, 0x73, 0x2e, 0x4f, 0x72, 0x64, 0x65,
+        0x72, 0x49, 0x74, 0x65, 0x6d, 0x52, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x22, 0x2d, 0x0a, 0x10,
+        0x53, 0x74, 0x6f, 0x63, 0x6b, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+        0x12, 0x19, 0x0a, 0x03, 0x73, 0x6b, 0x75, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x42, 0x07, 0xfa,
+        0x42, 0x04, 0x2a, 0x02, 0x20, 0x00, 0x52, 0x03, 0x73, 0x6b, 0x75, 0x22, 0x29, 0x0a, 0x11, 0x53,
+        0x74, 0x6f, 0x63, 0x6b, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+        0x12, 0x14, 0x0a, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52,
+        0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x22, 0x34, 0x0a, 0x0f, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x50,
+        0x61, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x21, 0x0a, 0x07, 0x6f, 0x72, 0x64,
+        0x65, 0x72, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x42, 0x07, 0xfa, 0x42, 0x04, 0x22,
+        0x02, 0x20, 0x00, 0x52, 0x07, 0x6f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x44, 0x22, 0x50, 0x0a, 0x09,
+        0x4f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x74, 0x65, 0x6d, 0x12, 0x1e, 0x0a, 0x06, 0x73, 0x6b, 0x75,
+        0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x42, 0x07, 0xfa, 0x42, 0x04, 0x72, 0x02,
+        0x10, 0x01, 0x52, 0x05, 0x73, 0x6b, 0x75, 0x49, 0x64, 0x12, 0x23, 0x0a, 0x08, 0x71, 0x75, 0x61,
+        0x6e, 0x74, 0x69, 0x74, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x42, 0x07, 0xfa, 0x42, 0x04,
+        0x2a, 0x02, 0x20, 0x00, 0x52, 0x08, 0x71, 0x75, 0x61, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x32, 0xc9,
+        0x02, 0x0a, 0x0b, 0x4c, 0x6f, 0x6d, 0x73, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x42,
+        0x0a, 0x0b, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x12, 0x18, 0x2e,
+        0x6c, 0x6f, 0x6d, 0x73, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x4f, 0x72, 0x64, 0x65, 0x72,
+        0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x6c, 0x6f, 0x6d, 0x73, 0x2e, 0x43,
+        0x72, 0x65, 0x61, 0x74, 0x65, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+        0x73, 0x65, 0x12, 0x3b, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x12, 0x16,
+        0x2e, 0x6c, 0x6f, 0x6d, 0x73, 0x2e, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x52,
+        0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x6c, 0x6f, 0x6d, 0x73, 0x2e, 0x4f, 0x72,
+        0x64, 0x65, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
+        0x3f, 0x0a, 0x0c, 0x47, 0x65, 0x74, 0x53, 0x74, 0x6f, 0x63, 0x6b, 0x49, 0x6e, 0x66, 0x6f, 0x12,
+        0x16, 0x2e, 0x6c, 0x6f, 0x6d, 0x73, 0x2e, 0x53, 0x74, 0x6f, 0x63, 0x6b, 0x49, 0x6e, 0x66, 0x6f,
+        0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x6c, 0x6f, 0x6d, 0x73, 0x2e, 0x53,
+        0x74, 0x6f, 0x63, 0x6b, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+        0x12, 0x39, 0x0a, 0x08, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x50, 0x61, 0x79, 0x12, 0x15, 0x2e, 0x6c,
+        0x6f, 0x6d, 0x73, 0x2e, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x50, 0x61, 0x79, 0x52, 0x65, 0x71, 0x75,
+        0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f,
+        0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x12, 0x3d, 0x0a, 0x0b, 0x44,
+        0x65, 0x6c, 0x65, 0x74, 0x65, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x12, 0x16, 0x2e, 0x6c, 0x6f, 0x6d,
+        0x73, 0x2e, 0x4f, 0x72, 0x64, 0x65, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65,
+        0x73, 0x74, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+        0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x42, 0x15, 0x5a, 0x13, 0x72, 0x6f,
+        0x75, 0x74, 0x65, 0x32, 0x35, 0x36, 0x2f, 0x6c, 0x6f, 0x6d, 0x73, 0x2f, 0x70, 0x72, 0x6f, 0x74,
+        0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+}
+
+var (
+        file_loms_proto_rawDescOnce sync.Once
+        file_loms_proto_rawDescData = file_loms_proto_rawDesc
+)
+
+func file_loms_proto_rawDescGZIP() []byte <span class="cov0" title="0">{
+        file_loms_proto_rawDescOnce.Do(func() </span><span class="cov0" title="0">{
+                file_loms_proto_rawDescData = protoimpl.X.CompressGZIP(file_loms_proto_rawDescData)
+        }</span>)
+        <span class="cov0" title="0">return file_loms_proto_rawDescData</span>
+}
+
+var file_loms_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_loms_proto_goTypes = []any{
+        (*CreateOrderRequest)(nil),  // 0: loms.CreateOrderRequest
+        (*CreateOrderResponse)(nil), // 1: loms.CreateOrderResponse
+        (*OrderInfoRequest)(nil),    // 2: loms.OrderInfoRequest
+        (*OrderInfoResponse)(nil),   // 3: loms.OrderInfoResponse
+        (*StockInfoRequest)(nil),    // 4: loms.StockInfoRequest
+        (*StockInfoResponse)(nil),   // 5: loms.StockInfoResponse
+        (*OrderPayRequest)(nil),     // 6: loms.OrderPayRequest
+        (*OrderItem)(nil),           // 7: loms.OrderItem
+        (*emptypb.Empty)(nil),       // 8: google.protobuf.Empty
+}
+var file_loms_proto_depIdxs = []int32{
+        7, // 0: loms.CreateOrderRequest.items:type_name -&gt; loms.OrderItem
+        7, // 1: loms.OrderInfoResponse.items:type_name -&gt; loms.OrderItem
+        0, // 2: loms.LomsService.CreateOrder:input_type -&gt; loms.CreateOrderRequest
+        2, // 3: loms.LomsService.GetOrder:input_type -&gt; loms.OrderInfoRequest
+        4, // 4: loms.LomsService.GetStockInfo:input_type -&gt; loms.StockInfoRequest
+        6, // 5: loms.LomsService.OrderPay:input_type -&gt; loms.OrderPayRequest
+        2, // 6: loms.LomsService.DeleteOrder:input_type -&gt; loms.OrderInfoRequest
+        1, // 7: loms.LomsService.CreateOrder:output_type -&gt; loms.CreateOrderResponse
+        3, // 8: loms.LomsService.GetOrder:output_type -&gt; loms.OrderInfoResponse
+        5, // 9: loms.LomsService.GetStockInfo:output_type -&gt; loms.StockInfoResponse
+        8, // 10: loms.LomsService.OrderPay:output_type -&gt; google.protobuf.Empty
+        8, // 11: loms.LomsService.DeleteOrder:output_type -&gt; google.protobuf.Empty
+        7, // [7:12] is the sub-list for method output_type
+        2, // [2:7] is the sub-list for method input_type
+        2, // [2:2] is the sub-list for extension type_name
+        2, // [2:2] is the sub-list for extension extendee
+        0, // [0:2] is the sub-list for field type_name
+}
+
+func init() <span class="cov10" title="3">{ file_loms_proto_init() }</span>
+func file_loms_proto_init() <span class="cov10" title="3">{
+        if File_loms_proto != nil </span><span class="cov0" title="0">{
+                return
+        }</span>
+        <span class="cov10" title="3">if !protoimpl.UnsafeEnabled </span><span class="cov0" title="0">{
+                file_loms_proto_msgTypes[0].Exporter = func(v any, i int) any </span><span class="cov0" title="0">{
+                        switch v := v.(*CreateOrderRequest); i </span>{
+                        case 0:<span class="cov0" title="0">
+                                return &amp;v.state</span>
+                        case 1:<span class="cov0" title="0">
+                                return &amp;v.sizeCache</span>
+                        case 2:<span class="cov0" title="0">
+                                return &amp;v.unknownFields</span>
+                        default:<span class="cov0" title="0">
+                                return nil</span>
+                        }
+                }
+                <span class="cov0" title="0">file_loms_proto_msgTypes[1].Exporter = func(v any, i int) any </span><span class="cov0" title="0">{
+                        switch v := v.(*CreateOrderResponse); i </span>{
+                        case 0:<span class="cov0" title="0">
+                                return &amp;v.state</span>
+                        case 1:<span class="cov0" title="0">
+                                return &amp;v.sizeCache</span>
+                        case 2:<span class="cov0" title="0">
+                                return &amp;v.unknownFields</span>
+                        default:<span class="cov0" title="0">
+                                return nil</span>
+                        }
+                }
+                <span class="cov0" title="0">file_loms_proto_msgTypes[2].Exporter = func(v any, i int) any </span><span class="cov0" title="0">{
+                        switch v := v.(*OrderInfoRequest); i </span>{
+                        case 0:<span class="cov0" title="0">
+                                return &amp;v.state</span>
+                        case 1:<span class="cov0" title="0">
+                                return &amp;v.sizeCache</span>
+                        case 2:<span class="cov0" title="0">
+                                return &amp;v.unknownFields</span>
+                        default:<span class="cov0" title="0">
+                                return nil</span>
+                        }
+                }
+                <span class="cov0" title="0">file_loms_proto_msgTypes[3].Exporter = func(v any, i int) any </span><span class="cov0" title="0">{
+                        switch v := v.(*OrderInfoResponse); i </span>{
+                        case 0:<span class="cov0" title="0">
+                                return &amp;v.state</span>
+                        case 1:<span class="cov0" title="0">
+                                return &amp;v.sizeCache</span>
+                        case 2:<span class="cov0" title="0">
+                                return &amp;v.unknownFields</span>
+                        default:<span class="cov0" title="0">
+                                return nil</span>
+                        }
+                }
+                <span class="cov0" title="0">file_loms_proto_msgTypes[4].Exporter = func(v any, i int) any </span><span class="cov0" title="0">{
+                        switch v := v.(*StockInfoRequest); i </span>{
+                        case 0:<span class="cov0" title="0">
+                                return &amp;v.state</span>
+                        case 1:<span class="cov0" title="0">
+                                return &amp;v.sizeCache</span>
+                        case 2:<span class="cov0" title="0">
+                                return &amp;v.unknownFields</span>
+                        default:<span class="cov0" title="0">
+                                return nil</span>
+                        }
+                }
+                <span class="cov0" title="0">file_loms_proto_msgTypes[5].Exporter = func(v any, i int) any </span><span class="cov0" title="0">{
+                        switch v := v.(*StockInfoResponse); i </span>{
+                        case 0:<span class="cov0" title="0">
+                                return &amp;v.state</span>
+                        case 1:<span class="cov0" title="0">
+                                return &amp;v.sizeCache</span>
+                        case 2:<span class="cov0" title="0">
+                                return &amp;v.unknownFields</span>
+                        default:<span class="cov0" title="0">
+                                return nil</span>
+                        }
+                }
+                <span class="cov0" title="0">file_loms_proto_msgTypes[6].Exporter = func(v any, i int) any </span><span class="cov0" title="0">{
+                        switch v := v.(*OrderPayRequest); i </span>{
+                        case 0:<span class="cov0" title="0">
+                                return &amp;v.state</span>
+                        case 1:<span class="cov0" title="0">
+                                return &amp;v.sizeCache</span>
+                        case 2:<span class="cov0" title="0">
+                                return &amp;v.unknownFields</span>
+                        default:<span class="cov0" title="0">
+                                return nil</span>
+                        }
+                }
+                <span class="cov0" title="0">file_loms_proto_msgTypes[7].Exporter = func(v any, i int) any </span><span class="cov0" title="0">{
+                        switch v := v.(*OrderItem); i </span>{
+                        case 0:<span class="cov0" title="0">
+                                return &amp;v.state</span>
+                        case 1:<span class="cov0" title="0">
+                                return &amp;v.sizeCache</span>
+                        case 2:<span class="cov0" title="0">
+                                return &amp;v.unknownFields</span>
+                        default:<span class="cov0" title="0">
+                                return nil</span>
+                        }
+                }
+        }
+        <span class="cov10" title="3">type x struct{}
+        out := protoimpl.TypeBuilder{
+                File: protoimpl.DescBuilder{
+                        GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
+                        RawDescriptor: file_loms_proto_rawDesc,
+                        NumEnums:      0,
+                        NumMessages:   8,
+                        NumExtensions: 0,
+                        NumServices:   1,
+                },
+                GoTypes:           file_loms_proto_goTypes,
+                DependencyIndexes: file_loms_proto_depIdxs,
+                MessageInfos:      file_loms_proto_msgTypes,
+        }.Build()
+        File_loms_proto = out.File
+        file_loms_proto_rawDesc = nil
+        file_loms_proto_goTypes = nil
+        file_loms_proto_depIdxs = nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">// Code generated by protoc-gen-go-grpc. DO NOT EDIT.
+// versions:
+// - protoc-gen-go-grpc v1.4.0
+// - protoc             v5.27.0
+// source: loms.proto
+
+package proto
+
+import (
+        context "context"
+
+        grpc "google.golang.org/grpc"
+        codes "google.golang.org/grpc/codes"
+        status "google.golang.org/grpc/status"
+        emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
+
+const (
+        LomsService_CreateOrder_FullMethodName  = "/loms.LomsService/CreateOrder"
+        LomsService_GetOrder_FullMethodName     = "/loms.LomsService/GetOrder"
+        LomsService_GetStockInfo_FullMethodName = "/loms.LomsService/GetStockInfo"
+        LomsService_OrderPay_FullMethodName     = "/loms.LomsService/OrderPay"
+        LomsService_DeleteOrder_FullMethodName  = "/loms.LomsService/DeleteOrder"
+)
+
+// LomsServiceClient is the client API for LomsService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LomsServiceClient interface {
+        CreateOrder(ctx context.Context, in *CreateOrderRequest, opts ...grpc.CallOption) (*CreateOrderResponse, error)
+        GetOrder(ctx context.Context, in *OrderInfoRequest, opts ...grpc.CallOption) (*OrderInfoResponse, error)
+        GetStockInfo(ctx context.Context, in *StockInfoRequest, opts ...grpc.CallOption) (*StockInfoResponse, error)
+        OrderPay(ctx context.Context, in *OrderPayRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+        DeleteOrder(ctx context.Context, in *OrderInfoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type lomsServiceClient struct {
+        cc grpc.ClientConnInterface
+}
+
+func NewLomsServiceClient(cc grpc.ClientConnInterface) LomsServiceClient <span class="cov0" title="0">{
+        return &amp;lomsServiceClient{cc}
+}</span>
+
+func (c *lomsServiceClient) CreateOrder(ctx context.Context, in *CreateOrderRequest, opts ...grpc.CallOption) (*CreateOrderResponse, error) <span class="cov0" title="0">{
+        cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+        out := new(CreateOrderResponse)
+        err := c.cc.Invoke(ctx, LomsService_CreateOrder_FullMethodName, in, out, cOpts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return out, nil</span>
+}
+
+func (c *lomsServiceClient) GetOrder(ctx context.Context, in *OrderInfoRequest, opts ...grpc.CallOption) (*OrderInfoResponse, error) <span class="cov0" title="0">{
+        cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+        out := new(OrderInfoResponse)
+        err := c.cc.Invoke(ctx, LomsService_GetOrder_FullMethodName, in, out, cOpts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return out, nil</span>
+}
+
+func (c *lomsServiceClient) GetStockInfo(ctx context.Context, in *StockInfoRequest, opts ...grpc.CallOption) (*StockInfoResponse, error) <span class="cov0" title="0">{
+        cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+        out := new(StockInfoResponse)
+        err := c.cc.Invoke(ctx, LomsService_GetStockInfo_FullMethodName, in, out, cOpts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return out, nil</span>
+}
+
+func (c *lomsServiceClient) OrderPay(ctx context.Context, in *OrderPayRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) <span class="cov0" title="0">{
+        cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+        out := new(emptypb.Empty)
+        err := c.cc.Invoke(ctx, LomsService_OrderPay_FullMethodName, in, out, cOpts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return out, nil</span>
+}
+
+func (c *lomsServiceClient) DeleteOrder(ctx context.Context, in *OrderInfoRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) <span class="cov0" title="0">{
+        cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+        out := new(emptypb.Empty)
+        err := c.cc.Invoke(ctx, LomsService_DeleteOrder_FullMethodName, in, out, cOpts...)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return out, nil</span>
+}
+
+// LomsServiceServer is the server API for LomsService service.
+// All implementations must embed UnimplementedLomsServiceServer
+// for forward compatibility
+type LomsServiceServer interface {
+        CreateOrder(context.Context, *CreateOrderRequest) (*CreateOrderResponse, error)
+        GetOrder(context.Context, *OrderInfoRequest) (*OrderInfoResponse, error)
+        GetStockInfo(context.Context, *StockInfoRequest) (*StockInfoResponse, error)
+        OrderPay(context.Context, *OrderPayRequest) (*emptypb.Empty, error)
+        DeleteOrder(context.Context, *OrderInfoRequest) (*emptypb.Empty, error)
+        mustEmbedUnimplementedLomsServiceServer()
+}
+
+// UnimplementedLomsServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedLomsServiceServer struct {
+}
+
+func (UnimplementedLomsServiceServer) CreateOrder(context.Context, *CreateOrderRequest) (*CreateOrderResponse, error) <span class="cov0" title="0">{
+        return nil, status.Errorf(codes.Unimplemented, "method CreateOrder not implemented")
+}</span>
+func (UnimplementedLomsServiceServer) GetOrder(context.Context, *OrderInfoRequest) (*OrderInfoResponse, error) <span class="cov0" title="0">{
+        return nil, status.Errorf(codes.Unimplemented, "method GetOrder not implemented")
+}</span>
+func (UnimplementedLomsServiceServer) GetStockInfo(context.Context, *StockInfoRequest) (*StockInfoResponse, error) <span class="cov0" title="0">{
+        return nil, status.Errorf(codes.Unimplemented, "method GetStockInfo not implemented")
+}</span>
+func (UnimplementedLomsServiceServer) OrderPay(context.Context, *OrderPayRequest) (*emptypb.Empty, error) <span class="cov0" title="0">{
+        return nil, status.Errorf(codes.Unimplemented, "method OrderPay not implemented")
+}</span>
+func (UnimplementedLomsServiceServer) DeleteOrder(context.Context, *OrderInfoRequest) (*emptypb.Empty, error) <span class="cov0" title="0">{
+        return nil, status.Errorf(codes.Unimplemented, "method DeleteOrder not implemented")
+}</span>
+func (UnimplementedLomsServiceServer) mustEmbedUnimplementedLomsServiceServer() {<span class="cov0" title="0">}</span>
+
+// UnsafeLomsServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LomsServiceServer will
+// result in compilation errors.
+type UnsafeLomsServiceServer interface {
+        mustEmbedUnimplementedLomsServiceServer()
+}
+
+func RegisterLomsServiceServer(s grpc.ServiceRegistrar, srv LomsServiceServer) <span class="cov0" title="0">{
+        s.RegisterService(&amp;LomsService_ServiceDesc, srv)
+}</span>
+
+func _LomsService_CreateOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov0" title="0">{
+        in := new(CreateOrderRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">if interceptor == nil </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).CreateOrder(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: LomsService_CreateOrder_FullMethodName,
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).CreateOrder(ctx, req.(*CreateOrderRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+func _LomsService_GetOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov0" title="0">{
+        in := new(OrderInfoRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">if interceptor == nil </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).GetOrder(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: LomsService_GetOrder_FullMethodName,
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).GetOrder(ctx, req.(*OrderInfoRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+func _LomsService_GetStockInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov0" title="0">{
+        in := new(StockInfoRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">if interceptor == nil </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).GetStockInfo(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: LomsService_GetStockInfo_FullMethodName,
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).GetStockInfo(ctx, req.(*StockInfoRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+func _LomsService_OrderPay_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov0" title="0">{
+        in := new(OrderPayRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">if interceptor == nil </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).OrderPay(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: LomsService_OrderPay_FullMethodName,
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).OrderPay(ctx, req.(*OrderPayRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+func _LomsService_DeleteOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) <span class="cov0" title="0">{
+        in := new(OrderInfoRequest)
+        if err := dec(in); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">if interceptor == nil </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).DeleteOrder(ctx, in)
+        }</span>
+        <span class="cov0" title="0">info := &amp;grpc.UnaryServerInfo{
+                Server:     srv,
+                FullMethod: LomsService_DeleteOrder_FullMethodName,
+        }
+        handler := func(ctx context.Context, req interface{}) (interface{}, error) </span><span class="cov0" title="0">{
+                return srv.(LomsServiceServer).DeleteOrder(ctx, req.(*OrderInfoRequest))
+        }</span>
+        <span class="cov0" title="0">return interceptor(ctx, in, info, handler)</span>
+}
+
+// LomsService_ServiceDesc is the grpc.ServiceDesc for LomsService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var LomsService_ServiceDesc = grpc.ServiceDesc{
+        ServiceName: "loms.LomsService",
+        HandlerType: (*LomsServiceServer)(nil),
+        Methods: []grpc.MethodDesc{
+                {
+                        MethodName: "CreateOrder",
+                        Handler:    _LomsService_CreateOrder_Handler,
+                },
+                {
+                        MethodName: "GetOrder",
+                        Handler:    _LomsService_GetOrder_Handler,
+                },
+                {
+                        MethodName: "GetStockInfo",
+                        Handler:    _LomsService_GetStockInfo_Handler,
+                },
+                {
+                        MethodName: "OrderPay",
+                        Handler:    _LomsService_OrderPay_Handler,
+                },
+                {
+                        MethodName: "DeleteOrder",
+                        Handler:    _LomsService_DeleteOrder_Handler,
+                },
+        },
+        Streams:  []grpc.StreamDesc{},
+        Metadata: "loms.proto",
+}
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package handler
 
 import (
         "net/http"
         "net/http/httptest"
-        "time"
 
         "route256/cart/cmd/config"
         "route256/cart/internal/handler"
         "route256/cart/internal/repository"
         "route256/cart/internal/service"
+        "route256/cart/internal/service/mocks"
         "route256/cart/pkg/product"
 
         "github.com/joho/godotenv"
         "github.com/stretchr/testify/suite"
+        "go.uber.org/goleak"
 )
 
 type TestSuite struct {
@@ -2497,14 +4559,15 @@ func (suite *TestSuite) SetupSuite() <span class="cov8" title="1">{
                 suite.T().Fatalf("Failed to parse config: %v", err)
         }</span>
 
-        <span class="cov8" title="1">productClientTimeout, err := time.ParseDuration(cfg.ProductClient.Timeout + "s")
+        <span class="cov8" title="1">productClient, err := product.NewClient(cfg.ProductClient)
         if err != nil </span><span class="cov0" title="0">{
-                suite.T().Fatalf("Failed to parse product client timeout: %v", err)
+                suite.T().Fatalf("Failed to parse product client: %v", err)
         }</span>
 
-        <span class="cov8" title="1">productClient := product.NewClient(cfg.ProductClient.Host, cfg.ProductClient.Token, productClientTimeout)
+        <span class="cov8" title="1">lomsClientMock := mocks.NewLomsClientMock(suite.T())
+
         repo := repository.NewRepository()
-        svc := service.NewService(repo, productClient)
+        svc := service.NewService(repo, productClient, lomsClientMock)
         handlers := handler.NewHandler(svc)
 
         mux := http.NewServeMux()
@@ -2521,6 +4584,7 @@ func (suite *TestSuite) SetupSuite() <span class="cov8" title="1">{
 
 func (suite *TestSuite) TearDownSuite() <span class="cov8" title="1">{
         suite.server.Close()
+        goleak.VerifyNone(suite.T())
 }</span>
 </pre>
 		

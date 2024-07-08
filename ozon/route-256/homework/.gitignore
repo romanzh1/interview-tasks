@@ -12,4 +12,6 @@
 /cart/vendor.protogen/
 /loms/pgdata
 bin/
-.env
+/loms/.env
+/cart/.env
+/loms/loms/google

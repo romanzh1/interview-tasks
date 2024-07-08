@@ -3,16 +3,17 @@ package handler
 import (
 	"net/http"
 	"net/http/httptest"
-	"time"
 
 	"route256/cart/cmd/config"
 	"route256/cart/internal/handler"
 	"route256/cart/internal/repository"
 	"route256/cart/internal/service"
+	"route256/cart/internal/service/mocks"
 	"route256/cart/pkg/product"
 
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/goleak"
 )
 
 type TestSuite struct {
@@ -34,14 +35,15 @@ func (suite *TestSuite) SetupSuite() {
 		suite.T().Fatalf("Failed to parse config: %v", err)
 	}
 
-	productClientTimeout, err := time.ParseDuration(cfg.ProductClient.Timeout + "s")
+	productClient, err := product.NewClient(cfg.ProductClient)
 	if err != nil {
-		suite.T().Fatalf("Failed to parse product client timeout: %v", err)
+		suite.T().Fatalf("Failed to parse product client: %v", err)
 	}
 
-	productClient := product.NewClient(cfg.ProductClient.Host, cfg.ProductClient.Token, productClientTimeout)
+	lomsClientMock := mocks.NewLomsClientMock(suite.T())
+
 	repo := repository.NewRepository()
-	svc := service.NewService(repo, productClient)
+	svc := service.NewService(repo, productClient, lomsClientMock)
 	handlers := handler.NewHandler(svc)
 
 	mux := http.NewServeMux()
@@ -58,4 +60,5 @@ func (suite *TestSuite) SetupSuite() {
 
 func (suite *TestSuite) TearDownSuite() {
 	suite.server.Close()
+	goleak.VerifyNone(suite.T())
 }

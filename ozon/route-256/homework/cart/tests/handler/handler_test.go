@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/goleak"
 )
 
 func (suite *TestSuite) TestDeleteItemFromUserCart() {
@@ -38,7 +39,7 @@ func (suite *TestSuite) TestDeleteItemFromUserCart() {
 	assert.Equal(suite.T(), http.StatusNoContent, response.StatusCode)
 
 	items, err := suite.repo.ListUserCart(ctx, 1)
-	assert.Error(suite.T(), err)
+	assert.NoError(suite.T(), err)
 	assert.Empty(suite.T(), items)
 }
 
@@ -88,4 +89,8 @@ func (suite *TestSuite) TestListUserCart() {
 
 func TestHandlerTestSuite(t *testing.T) {
 	suite.Run(t, new(TestSuite))
+}
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }

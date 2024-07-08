@@ -1,6 +1,7 @@
-build-all:
-	cd cart && GOOS=linux GOARCH=amd64 make build
+run:
+	docker-compose up -d
 
-
-run-all: build-all
+run-recreate:
 	docker-compose up --force-recreate --build -d
+
+.PHONY: run

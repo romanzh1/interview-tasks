@@ -6,11 +6,10 @@ package mocks
 
 import (
 	"context"
+	"route256/cart/internal/models"
 	"sync"
 	mm_atomic "sync/atomic"
 	mm_time "time"
-
-	"route256/cart/internal/models"
 
 	"github.com/gojuno/minimock/v3"
 )

@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"route256/cart/internal/models"
-
 	"github.com/go-playground/validator/v10"
+	"go.opentelemetry.io/otel/trace"
+
+	"route256/cart/internal/models"
 )
 
 type cartService interface {
@@ -16,25 +17,29 @@ type cartService interface {
 	DeleteItemFromUserCart(ctx context.Context, userID, skuID int64) error
 	ClearUserCart(ctx context.Context, userID int64) error
 	ListUserCart(ctx context.Context, userID int64) ([]models.CartItem, uint32, error)
+	CreateOrder(ctx context.Context, userID int64) (int64, error)
 }
 
 type Handler struct {
 	service  cartService
 	validate *validator.Validate
+	tracer   trace.Tracer
 }
 
-func NewHandler(service cartService) *Handler {
+func NewHandler(service cartService, tracer trace.Tracer) *Handler {
 	return &Handler{
 		service:  service,
 		validate: validator.New(),
+		tracer:   tracer,
 	}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /user/{userID}/cart/{skuID}", h.AddItemToUserCart)
-	mux.HandleFunc("DELETE /user/{userID}/cart/{skuID}", h.DeleteItemFromUserCart)
-	mux.HandleFunc("DELETE /user/{userID}/cart", h.ClearUserCart)
-	mux.HandleFunc("GET /user/{userID}/cart", h.ListUserCart)
+	mux.HandleFunc("POST /user/{userID}/cart/{skuID}", h.loggingAndObserveMiddleware(h.AddItemToUserCart))
+	mux.HandleFunc("POST /cart/checkout", h.loggingAndObserveMiddleware(h.CreateOrder))
+	mux.HandleFunc("DELETE /user/{userID}/cart/{skuID}", h.loggingAndObserveMiddleware(h.DeleteItemFromUserCart))
+	mux.HandleFunc("DELETE /user/{userID}/cart", h.loggingAndObserveMiddleware(h.ClearUserCart))
+	mux.HandleFunc("GET /user/{userID}/cart", h.loggingAndObserveMiddleware(h.ListUserCart))
 }
 
 func (h *Handler) extractUserID(w http.ResponseWriter, r *http.Request) (int64, bool) {
@@ -178,4 +183,47 @@ func (h *Handler) ListUserCart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	req := models.CartRequest{}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.validate.StructPartial(req, "UserID"); err != nil {
+		http.Error(w, "invalid input", http.StatusBadRequest)
+		return
+	}
+
+	orderID, err := h.service.CreateOrder(r.Context(), req.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := struct {
+		OrderID int64 `json:"order_id"`
+	}{
+		OrderID: orderID,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
 }

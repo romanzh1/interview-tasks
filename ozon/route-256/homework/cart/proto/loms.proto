@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package loms;
+
+option go_package = "route256/loms/proto";
+
+import "validate/validate.proto";
+
+service LomsService {
+    rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
+    rpc GetOrder(OrderInfoRequest) returns (OrderInfoResponse);
+    rpc GetStockInfo(StockInfoRequest) returns (StockInfoResponse);
+}
+
+message CreateOrderRequest {
+    int64 user = 1 [(validate.rules).int64.gt = 0];
+    repeated OrderItem items = 2 [(validate.rules).repeated.min_items = 1];
+}
+
+message CreateOrderResponse {
+    int64 orderID = 1;
+}
+
+message OrderInfoRequest {
+    int64 orderID = 1 [(validate.rules).int64.gt = 0];
+}
+
+message OrderInfoResponse {
+    string status = 1;
+    int64 user = 2;
+    repeated OrderItem items = 3;
+}
+
+message StockInfoRequest {
+    uint32 sku = 1 [(validate.rules).uint32.gt = 0];
+}
+
+message StockInfoResponse {
+    uint64 count = 1;
+}
+
+message OrderItem {
+    uint64 sku_id = 1 [(validate.rules).string.min_len = 1];
+    uint32 quantity = 2 [(validate.rules).uint32.gt = 0];
+}

@@ -7,22 +7,29 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"route256/cart/cmd/config"
 )
 
 type Client struct {
-	baseURL string
-	token   string
-	client  *http.Client
+	baseURL     string
+	token       string
+	client      *http.Client
+	rateLimiter *time.Ticker
 }
 
-func NewClient(baseURL, token string, timeout time.Duration) *Client {
-	return &Client{
-		baseURL: baseURL,
-		token:   token,
-		client: &http.Client{
-			Timeout: timeout,
-		},
+func NewClient(cfg config.ProductClient) (*Client, error) {
+	productClientTimeout, err := time.ParseDuration(cfg.Timeout + "s")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse product client timeout: %w", err)
 	}
+
+	return &Client{
+		baseURL:     cfg.Host,
+		token:       cfg.Token,
+		client:      &http.Client{Timeout: productClientTimeout},
+		rateLimiter: time.NewTicker(time.Second / time.Duration(cfg.Rps)),
+	}, nil
 }
 
 type Product struct {
@@ -35,15 +42,21 @@ type Response struct {
 	Message string `json:"message"`
 }
 
-type ProductRequest struct {
+type Request struct {
 	Token string `json:"token"`
 	SkuID uint32 `json:"sku"`
 }
 
 func (c *Client) GetProduct(ctx context.Context, skuID uint32) (*Product, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-c.rateLimiter.C:
+	}
+
 	url := fmt.Sprintf("%s/get_product", c.baseURL)
 
-	requestBody, err := json.Marshal(ProductRequest{
+	requestBody, err := json.Marshal(Request{
 		Token: c.token,
 		SkuID: skuID,
 	})

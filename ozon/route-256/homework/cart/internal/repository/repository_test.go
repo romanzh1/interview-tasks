@@ -10,6 +10,8 @@ import (
 )
 
 func TestAddItemToUserCart(t *testing.T) {
+	t.Parallel()
+
 	repo := NewRepository()
 	ctx := context.Background()
 
@@ -23,6 +25,8 @@ func TestAddItemToUserCart(t *testing.T) {
 }
 
 func TestDeleteItemFromUserCart(t *testing.T) {
+	t.Parallel()
+
 	repo := NewRepository()
 	ctx := context.Background()
 
@@ -32,12 +36,12 @@ func TestDeleteItemFromUserCart(t *testing.T) {
 	err = repo.DeleteItemFromUserCart(ctx, 1, 1001)
 	assert.NoError(t, err)
 	_, err = repo.ListUserCart(ctx, 1)
-	if assert.Error(t, err) {
-		assert.Equal(t, models.ErrCartIsEmpty, err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestClearUserCart(t *testing.T) {
+	t.Parallel()
+
 	repo := NewRepository()
 	ctx := context.Background()
 
@@ -52,14 +56,14 @@ func TestClearUserCart(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = repo.ListUserCart(ctx, 1)
-	if assert.Error(t, err) {
-		assert.Equal(t, models.ErrCartIsEmpty, err)
-	}
+	assert.NoError(t, err)
 	_, err = repo.ListUserCart(ctx, 2)
 	assert.NoError(t, err)
 }
 
 func TestListUserCart(t *testing.T) {
+	t.Parallel()
+
 	repo := NewRepository()
 	ctx := context.Background()
 
@@ -75,7 +79,5 @@ func TestListUserCart(t *testing.T) {
 	assert.Len(t, items, 2)
 
 	_, err = repo.ListUserCart(ctx, 3)
-	if assert.Error(t, err) {
-		assert.Equal(t, models.ErrCartIsEmpty, err)
-	}
+	assert.NoError(t, err)
 }

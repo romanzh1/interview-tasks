@@ -11,20 +11,26 @@ import (
 
 	"github.com/gojuno/minimock/v3"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 )
 
-func setupMocks(mc *minimock.Controller) (*mocks.CartRepositoryMock, *mocks.ProductClientMock, *Service) {
+func setupMocks(mc *minimock.Controller) (*mocks.CartRepositoryMock, *mocks.ProductClientMock, *mocks.LomsClientMock, *Service) {
 	repoMock := mocks.NewCartRepositoryMock(mc)
 	productClientMock := mocks.NewProductClientMock(mc)
-	s := NewService(repoMock, productClientMock)
+	lomsClientMock := mocks.NewLomsClientMock(mc)
+	s := NewService(repoMock, productClientMock, lomsClientMock)
 
-	return repoMock, productClientMock, s
+	return repoMock, productClientMock, lomsClientMock, s
+}
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
 }
 
 func TestService_AddItemToUserCart(t *testing.T) {
-	mc := minimock.NewController(t)
+	t.Parallel()
 
-	repoMock, productClientMock, s := setupMocks(mc)
+	mc := minimock.NewController(t)
 
 	tests := []struct {
 		name             string
@@ -59,8 +65,23 @@ func TestService_AddItemToUserCart(t *testing.T) {
 	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			repoMock, productClientMock, lomsClientMock, s := setupMocks(mc)
+			t.Cleanup(func() {
+				repoMock.MinimockFinish()
+				productClientMock.MinimockFinish()
+				lomsClientMock.MinimockFinish()
+			})
+
+			if tt.name == "Successful addition" {
+				lomsClientMock.GetStockInfoMock.Set(func(ctx context.Context, sku uint32) (uint64, error) {
+					return 10, nil
+				})
+				repoMock.AddItemToUserCartMock.Return(nil)
+			}
+
 			productClientMock.GetProductMock.Return(tt.getProductReturn, tt.getProductErr)
-			repoMock.AddItemToUserCartMock.Return(nil)
 
 			err := s.AddItemToUserCart(ctx, tt.cart)
 			if tt.expectedErr == "" {
@@ -69,14 +90,20 @@ func TestService_AddItemToUserCart(t *testing.T) {
 				assert.Error(t, err)
 				assert.Equal(t, tt.expectedErr, err.Error())
 			}
+
+			if tt.expectedErr == "" {
+				assert.Equal(t, uint64(1), lomsClientMock.GetStockInfoAfterCounter())
+			}
 		})
 	}
 }
 
 func TestService_DeleteItemFromUserCart(t *testing.T) {
-	mc := minimock.NewController(t)
+	t.Parallel()
 
-	repoMock, _, s := setupMocks(mc)
+	mc := minimock.NewController(t)
+	repoMock, _, _, s := setupMocks(mc)
+	t.Cleanup(repoMock.MinimockFinish)
 
 	ctx := context.Background()
 
@@ -87,9 +114,9 @@ func TestService_DeleteItemFromUserCart(t *testing.T) {
 }
 
 func TestService_ClearUserCart(t *testing.T) {
+	t.Parallel()
 	mc := minimock.NewController(t)
-
-	repoMock, _, s := setupMocks(mc)
+	repoMock, _, _, s := setupMocks(mc)
 
 	ctx := context.Background()
 
@@ -100,9 +127,8 @@ func TestService_ClearUserCart(t *testing.T) {
 }
 
 func TestService_ListUserCart(t *testing.T) {
+	t.Parallel()
 	mc := minimock.NewController(t)
-
-	repoMock, productClientMock, s := setupMocks(mc)
 
 	tests := []struct {
 		name               string
@@ -154,20 +180,31 @@ func TestService_ListUserCart(t *testing.T) {
 			getProductErr:      errors.New("product client error"),
 			expectedItems:      nil,
 			expectedTotalPrice: 0,
-			expectedErr:        "failed to get p: product client error",
+			expectedErr:        "failed to get products: failed to get product: product client error",
 		},
 	}
 
 	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repoMock.ListUserCartMock.Return(tt.listUserCartReturn, tt.listUserCartErr)
-			productClientMock.GetProductMock.Set(func(ctx context.Context, skuID uint32) (p1 *product.Product, err error) {
-				if tt.getProductErr != nil {
-					return nil, tt.getProductErr
-				}
-				return tt.getProductReturns[skuID], nil
+			t.Parallel()
+
+			repoMock, productClientMock, _, s := setupMocks(mc)
+
+			t.Cleanup(func() {
+				repoMock.MinimockFinish()
+				productClientMock.MinimockFinish()
 			})
+
+			repoMock.ListUserCartMock.Return(tt.listUserCartReturn, tt.listUserCartErr)
+			if tt.name != "Repository error" {
+				productClientMock.GetProductMock.Set(func(ctx context.Context, skuID uint32) (p1 *product.Product, err error) {
+					if tt.getProductErr != nil {
+						return nil, tt.getProductErr
+					}
+					return tt.getProductReturns[skuID], nil
+				})
+			}
 
 			items, totalPrice, err := s.ListUserCart(ctx, tt.userID)
 			if tt.expectedErr == "" {
