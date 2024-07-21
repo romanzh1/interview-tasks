@@ -1,0 +1,9 @@
+-- Порядок операций в PostgreSQL:
+FROM
+JOIN
+WHERE
+GROUP BY
+HAVING
+SELECT
+ORDER BY
+LIMIT
