@@ -25,16 +25,13 @@ func main() {
 }
 
 func replaceChar(input string, oldChar rune, newChar rune) string {
-	// Преобразование строки в массив байт
 	bytes := []byte(input)
 
-	// Замена символа в массиве байт
 	for i, b := range bytes {
 		if rune(b) == oldChar {
 			bytes[i] = byte(newChar)
 		}
 	}
 
-	// Преобразование массива байт обратно в строку
 	return string(bytes)
 }
