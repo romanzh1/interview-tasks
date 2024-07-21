@@ -2,9 +2,7 @@ package handler
 
 import (
 	"context"
-	"strconv"
 
-	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/go-playground/validator/v10"
@@ -39,6 +37,7 @@ func (s *Server) CreateOrder(ctx context.Context, req *proto.CreateOrderRequest)
 	defer span.End()
 
 	if err := s.Validate.Struct(req); err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request: %v", err)
 	}
 
@@ -52,6 +51,7 @@ func (s *Server) CreateOrder(ctx context.Context, req *proto.CreateOrderRequest)
 
 	orderID, err := s.Service.CreateOrder(ctx, req.User, items)
 	if err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.Internal, "failed to create order: %v", err)
 	}
 
@@ -63,16 +63,15 @@ func (s *Server) GetOrder(ctx context.Context, req *proto.OrderInfoRequest) (*pr
 	defer span.End()
 
 	if err := s.Validate.Struct(req); err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request: %v", err)
 	}
 
 	order, err := s.Service.GetOrder(ctx, req.OrderID)
 	if err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.NotFound, "order not found: %v", err)
 	}
-
-	span.SetAttributes(attribute.String("orderID", strconv.FormatInt(req.OrderID, 10)),
-		attribute.String("userID", strconv.FormatInt(order.UserID, 10)))
 
 	items := make([]*proto.OrderItem, len(order.Items))
 	for i, item := range order.Items {
@@ -91,11 +90,13 @@ func (s *Server) GetStockInfo(ctx context.Context, req *proto.StockInfoRequest) 
 	defer span.End()
 
 	if err := s.Validate.Struct(req); err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request: %v", err)
 	}
 
 	count, err := s.Service.GetStockInfo(ctx, req.Sku)
 	if err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.NotFound, "stock not found: %v", err)
 	}
 
@@ -107,11 +108,13 @@ func (s *Server) PayOrder(ctx context.Context, req *proto.PayOrderRequest) (*emp
 	defer span.End()
 
 	if err := s.Validate.Struct(req); err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request: %v", err)
 	}
 
 	err := s.Service.OrderPay(ctx, req.OrderID)
 	if err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.NotFound, "order not found: %v", err)
 	}
 
@@ -123,11 +126,13 @@ func (s *Server) CancelOrder(ctx context.Context, req *proto.OrderInfoRequest) (
 	defer span.End()
 
 	if err := s.Validate.Struct(req); err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.InvalidArgument, "invalid request: %v", err)
 	}
 
 	err := s.Service.CancelOrder(ctx, req.OrderID)
 	if err != nil {
+		span.RecordError(err)
 		return nil, status.Errorf(codes.NotFound, "order not found: %v", err)
 	}
 

@@ -9,14 +9,16 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+
 	"route256/libs/metrics"
 	"route256/libs/tracing"
-	"route256/loms/internal/handler"
-
 	"route256/loms/cmd/config"
+	"route256/loms/internal/handler"
 	"route256/loms/internal/repository"
 	"route256/loms/internal/service"
 	"route256/loms/proto"
@@ -42,8 +44,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	tp, err := tracing.InitTracer(
-		cfg.Observability.TracerHost+":"+cfg.Observability.TracerPort, serviceName)
+	tp, err := tracing.InitTracer(cfg.Observability.TracerHost+":"+cfg.Observability.TracerPort, serviceName, tracing.GRPCTransport)
 	if err != nil {
 		slog.Error("Failed to initialize tracer", "error", err)
 		return
@@ -67,6 +68,9 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(lomsHandler.UnaryServerInterceptor()),
+		grpc.StatsHandler(otelgrpc.NewServerHandler(
+			otelgrpc.WithTracerProvider(tp),
+			otelgrpc.WithPropagators(otel.GetTextMapPropagator()))),
 	)
 
 	gwMux := runtime.NewServeMux()

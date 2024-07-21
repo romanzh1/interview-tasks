@@ -15,6 +15,7 @@ type statusRecorder struct {
 	http.ResponseWriter
 	status      int
 	wroteHeader bool
+	errMessage  string
 }
 
 func (rec *statusRecorder) WriteHeader(status int) {
@@ -28,6 +29,9 @@ func (rec *statusRecorder) WriteHeader(status int) {
 func (rec *statusRecorder) Write(b []byte) (int, error) {
 	if !rec.wroteHeader {
 		rec.WriteHeader(http.StatusOK)
+	}
+	if rec.status >= 400 {
+		rec.errMessage = string(b)
 	}
 	return rec.ResponseWriter.Write(b)
 }
@@ -59,6 +63,7 @@ func (h *Handler) loggingAndObserveMiddleware(handlerFunc http.HandlerFunc) http
 					"method", r.Method,
 					"path", r.URL.Path,
 					"status", rec.status,
+					"error", rec.errMessage,
 					"trace_id", traceID,
 					"span_id", spanID)
 			} else {

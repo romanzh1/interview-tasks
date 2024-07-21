@@ -39,7 +39,6 @@ func NewService(txManager TxManager, orderRepo cartRepository, stockRepo stockRe
 func (s *Service) CreateOrder(ctx context.Context, userID int64, items []models.OrderItem) (int64, error) {
 	var orderID int64
 
-	fmt.Println(items, userID)
 	err := s.txManager.Tx(ctx, func(ctx context.Context, tx pgx.Tx) error {
 		var err error
 

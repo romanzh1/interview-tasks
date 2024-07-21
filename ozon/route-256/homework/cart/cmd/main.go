@@ -34,7 +34,7 @@ func main() {
 	}
 
 	tp, err := tracing.InitTracer(
-		cfg.Observability.TracerHost+":"+cfg.Observability.TracerPort, serviceName)
+		cfg.Observability.TracerHost+":"+cfg.Observability.TracerPort, serviceName, tracing.GRPCTransport)
 	if err != nil {
 		slog.Error("Failed to initialize tracer", "error", err)
 		return

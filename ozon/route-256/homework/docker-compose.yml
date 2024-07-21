@@ -66,7 +66,7 @@ services:
     image: jaegertracing/all-in-one:1.56
     ports:
       - "16686:16686" #ui
-      - "4318:4318" #collector
+      - "4317:4317" #collector grpc
 
 volumes:
   postgres_data:
