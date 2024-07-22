@@ -39,12 +39,8 @@ func (s *Service) ProcessData2(timeoutCtx context.Context, r io.Reader) error {
 	errCh := make(chan error, 1) // Используем буферизированный канал
 
 	go func() {
-		defer close(errCh)
-		select {
-		case errCh <- s.processDataInternal(r):
-		case <-timeoutCtx.Done():
-			return
-		}
+		errCh <- s.processDataInternal(r)
+		close(errCh)
 	}()
 
 	select {
@@ -54,3 +50,6 @@ func (s *Service) ProcessData2(timeoutCtx context.Context, r io.Reader) error {
 		return timeoutCtx.Err()
 	}
 }
+
+// 6. Функция isCallAllowed ограничивает количество вызовов в течение текущего и предыдущего 30-секундного интервала.
+// Она возвращает true, если вызов разрешен, и false в противном случае

@@ -119,7 +119,6 @@ func (s *Service) ProcessData(timeoutCtx context.Context, r io.Reader) error {
 
 // 6.
 // Опиши, что делает функция isCallAllowed?
-// TODO разобрать что же она всё таки делает
 
 var callCount = make(map[uint]uint)
 
