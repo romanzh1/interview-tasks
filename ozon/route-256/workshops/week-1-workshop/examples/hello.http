@@ -1,0 +1,3 @@
+### GET request with a header
+GET localhost:8080/hello
+

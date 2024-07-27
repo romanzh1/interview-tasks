@@ -1,0 +1,161 @@
+syntax = "proto3";
+
+package gitlab.ozon.dev.go.classroom_12.students.week_3_workshop.pkg.notes.v1;
+
+option go_package = "gitlab.ozon.dev/go/classroom-12/students/week-3-workshop/pkg/api/notes/v1;notes";
+
+import "google/protobuf/empty.proto";
+import "validate/validate.proto";
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+// See more: https://github.com/grpc-ecosystem/grpc-gateway/blob/main/examples/internal/proto/examplepb/a_bit_of_everything.proto
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Workshop 3";
+    version: "1.0.0";
+  };
+  schemes: HTTP;
+  schemes: HTTPS;
+  consumes: "application/json";
+  produces: "application/json";
+  security_definitions: {
+    security: {
+      key: "x-auth";
+      value: {
+        type: TYPE_API_KEY;
+        in: IN_HEADER;
+        name: "authorization";
+      }
+    }
+  }
+};
+
+
+service Notes {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Notes service example"
+    external_docs: {
+      url: "https://github.com/grpc-ecosystem/grpc-gateway/blob/main/examples/internal/proto/examplepb/a_bit_of_everything.proto";
+      description: "Find out more about grpc-gateway";
+    }
+  };
+
+  rpc SaveNote(SaveNoteRequest) returns (SaveNoteResponse) {
+    option (google.api.http) = {
+      post: "/v1/note"
+      body: "info"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      security: {
+        security_requirement: {
+          key: "x-auth";
+          value: {}
+        }
+      }
+    };
+  }
+
+  rpc ListNotes(google.protobuf.Empty) returns (ListNotesResponse) {
+    option (google.api.http) = {
+      get: "/v1/notes"
+    };
+  }
+
+  rpc GetNoteByID(GetNoteByIDRequest) returns (GetNoteByIDResponse) {
+    option (google.api.http) = {
+      get: "/v1/notes/{note_id}"
+    };
+  }
+
+  rpc DeleteNoteByID(DeleteNoteByIDRequest) returns (DeleteNoteByIDResponse) {
+    option (google.api.http) = {
+      delete: "/v1/notes/{note_id}"
+    };
+  }
+
+  rpc UpdateNoteByID(UpdateNoteByIDRequest) returns (UpdateNoteByIDResponse) {
+    option (google.api.http) = {
+      put: "/v1/notes/{note_id}"
+      body: "info"
+    };
+  }
+}
+
+message UpdateNoteByIDResponse {
+
+}
+
+message UpdateNoteByIDRequest {
+  uint64 note_id = 1;
+  NoteInfo info = 2 [
+    (validate.rules).message.required = true
+  ];
+}
+
+message DeleteNoteByIDRequest{
+  uint64 note_id = 1;
+}
+
+message DeleteNoteByIDResponse {
+}
+
+message GetNoteByIDRequest {
+  uint64 note_id = 1;
+  bool some_query_param = 2;
+}
+
+message GetNoteByIDResponse {
+}
+
+message NoteInfo {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "NoteInformation"
+      description: "Notes full description"
+      required: ["title", "content"]
+    }
+  };
+
+  string title = 1 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      title: "title",
+      description: "Note title",
+      min_length: 3,
+      max_length: 140,
+      pattern: "^[a-zA-Z]+$",
+      type: STRING,
+      format: "string",
+      example: "\"Example Title\""
+    },
+    (validate.rules).string = {
+      min_len: 3,
+      max_len: 140,
+      pattern: "^[a-zA-Z]+$",
+    }
+  ];
+  string content = 2 [(validate.rules).string = {
+    min_len: 10,
+    max_len: 1000,
+  }
+  ];
+}
+
+message Note {
+  uint64 note_id = 1;
+  NoteInfo info = 2;
+}
+
+message SaveNoteRequest {
+  NoteInfo info = 1 [
+    (validate.rules).message.required = true
+  ];
+}
+
+message SaveNoteResponse {
+  uint64 note_id = 1;
+}
+
+message ListNotesResponse {
+  repeated Note notes = 1;
+}

@@ -1,0 +1,8 @@
+POST localhost:8080/products/100/reviews
+
+{
+ "sku": 1,
+  "comment": "Отлично",
+  "user_id": 20
+}
+

@@ -1,0 +1,32 @@
+### Create order
+POST http://localhost:8090/create
+Content-Type: application/json
+
+{
+  "user_id": 130,
+  "description": "order-130-3"
+}
+
+### Get order by id
+POST http://localhost:8090/get
+Content-Type: application/json
+
+{
+  "order_id": 8001
+}
+
+### List orders by user id
+POST http://localhost:8090/list_by_user_id
+Content-Type: application/json
+
+{
+  "user_id": 130
+}
+
+### List orders by order ids
+POST http://localhost:8090/list_by_id
+Content-Type: application/json
+
+{
+  "order_ids": [8001, 5000]
+}

@@ -1,0 +1,39 @@
+version: "3.7"
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+
+  prometheus:
+    image: gitlab-registry.ozon.dev/go/classroom-12/students/homework/prometheus:v2.36.2
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: gitlab-registry.ozon.dev/go/classroom-12/students/homework/grafana:latest
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+
+  jaeger:
+    image: gitlab-registry.ozon.dev/go/classroom-12/students/homework/jaegertracing:latest
+    ports:
+      - "16686:16686"
+      - "4318:4318"

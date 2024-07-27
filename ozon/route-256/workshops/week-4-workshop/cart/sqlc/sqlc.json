@@ -1,0 +1,15 @@
+{
+  "version": "2",
+  "sql": [{
+    "engine": "postgresql",
+    "schema": "../migrations",
+    "gen": {
+      "go": {
+        "package": "db_sqlc_cart_repo",
+        "out": "../internal/repository/db_sqlc_cart_repo",
+        "sql_package": "pgx/v5"
+      }
+    },
+    "queries": "../internal/repository/db_sqlc_cart_repo"
+  }]
+}

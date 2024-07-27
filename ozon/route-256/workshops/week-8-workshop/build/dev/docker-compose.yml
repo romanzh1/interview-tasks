@@ -1,0 +1,21 @@
+version: "3"
+services:
+  postgres-shard-1:
+    container_name: ws-8-pg-1
+    image: postgres:13
+    environment:
+      POSTGRES_DB: ${DOCKER_POSTGRES_DB_1}
+      POSTGRES_USER: ${DOCKER_POSTGRES_USER_1}
+      POSTGRES_PASSWORD: ${DOCKER_POSTGRES_PASSWORD_1}
+    ports:
+      - ${DOCKER_POSTGRES_HOST_PORT_1}:5432
+
+  postgres-shard-2:
+    container_name: ws-8-pg-2
+    image: postgres:13
+    environment:
+      POSTGRES_DB: ${DOCKER_POSTGRES_DB_2}
+      POSTGRES_USER: ${DOCKER_POSTGRES_USER_2}
+      POSTGRES_PASSWORD: ${DOCKER_POSTGRES_PASSWORD_2}
+    ports:
+      - ${DOCKER_POSTGRES_HOST_PORT_2}:5432

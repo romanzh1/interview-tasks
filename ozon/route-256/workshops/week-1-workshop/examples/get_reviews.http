@@ -1,0 +1,2 @@
+GET localhost:8080/products/1/reviews
+
