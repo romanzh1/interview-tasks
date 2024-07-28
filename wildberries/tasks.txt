@@ -1,0 +1,110 @@
+// 1
+// Просмотреть код, назвать, что выведется в stdout
+// Найти все проблемы в коде и решить их
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+type Agent struct {
+	ID      int
+	Enabled bool
+}
+
+func (a Agent) Enable() {
+	a.Enabled = true
+}
+
+type Enabler interface {
+	Enable()
+}
+
+// 1. Инициализация слайса агентов
+// 2. Дополнение слайса сторонними агентами
+// 3. Потоковая обработка объектов - активация и отправка на выполнение работы
+// 4. Потоковая обработка объектов - сохранение в БД и распечатка резульатов
+func main() {
+	agents := make([]Agent, 0, 5)
+	for i := 0; i < 2; i++ {
+		agents = append(agents, Agent{ID: i})
+	}
+
+	addThirdPartyAgents(agents)
+
+	pipe := make(chan Enabler)
+	go pipeEnableAndSend(pipe, agents)
+	go pipeProcess(pipe)
+}
+
+func addThirdPartyAgents(agents []Agent) {
+	thirdParty := []Agent{
+		{ID: 4},
+		{ID: 5},
+	}
+	agents = append(agents, thirdParty...)
+}
+
+func pipeEnableAndSend(pipe chan Enabler, agents []Agent) {
+	for _, a := range agents {
+		a.Enable()
+		pipe <- a
+	}
+}
+
+func pipeProcess(pipe chan Enabler) {
+	for {
+		select {
+		case a := <-pipe:
+			dbWrite(a)
+		}
+	}
+}
+
+var dbWrite = func(a any) {
+	fmt.Println(a)
+	time.Sleep(time.Second * 1)
+}
+
+// 2
+package main
+
+import (
+    "fmt"
+    "sync"
+    "time"
+)
+
+var cacheStore sync.Map
+
+const timeout = time.Second
+
+// GetData возвращает данные из getter, страхуя кешом
+// в случае ошибки. Проблема: getter может отвечать очень долго.
+// Задача: в случае ответа дольше timeout отдавать кеш,
+// и правильно обработать кейс, когда getter всегда отвечает долго.
+func GetData(key string, getter func() (interface{}, error)) (interface{}, error) {
+    data, err := getter()
+    if err == nil {
+        cacheStore.Store(key, data)
+        return data, nil
+    }
+
+    fmt.Printf("Getter result err: %s", err)
+    if data, ok := cacheStore.Load(key); ok {
+        return data, nil
+    }
+
+    return nil, err
+}
+
+-- 3
+-- Дана таблица сотрудников компании employee
+-- - id int — идентификатор сотрудника
+-- - parent_id int — идентификатор его руководителя
+-- - name string – имя сотрудника
+--
+-- Задача: вывести имена всех линейных сотрудников,
+-- которые не являются руководителями.
+-- Иначе говоря: вывести все листья в дереве иерархии.
