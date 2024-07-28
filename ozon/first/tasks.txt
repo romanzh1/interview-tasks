@@ -49,20 +49,9 @@ sku   | price | user_id | date
 user_id | date   
 1       | 2021-03-08
 
-1. Список уникальных клиентов и купленных ими товаров в феврале
-SELECT user.firsname, user.lastname, purchase.sku, purchase.user_id
-FROM user
-INNER JOIN purchase ON user.id = purchase.user_id
-WHERE MOUNTH(purchase.date) = 2 
+3. Список уникальных клиентов и купленных ими товаров в феврале
 
-2. Список уникальных клиентов, совершивших покупку товаров на сумму больше 5000 и не имеющих бана
-SELECT user.firsname, user.lastname, SUM(purchase.price) as price
-FROM user
-INNER JOIN purchase ON user.id = purchase.user_id
-LEFT JOIN ban_list ON user.id = ban_list.iser_id
-GROUP BY price, user.firsname, user.lastname
-HAVING price > 5000
-
+4. Список уникальных клиентов, совершивших покупку товаров на сумму больше 5000 и не имеющих бана
 
 
 

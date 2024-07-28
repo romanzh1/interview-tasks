@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-// solve 1.1
+// MoveZerosRecursive solve 1.1
 func MoveZerosRecursive(zeros []int) []int {
 	return MoveZero(zeros, 0)
 }
@@ -20,7 +20,7 @@ func MoveZero(zeros []int, n int) []int {
 	return MoveZero(zeros, n+1)
 }
 
-// solve 1.2
+// MoveZerosIndex solve 1.2
 func MoveZerosIndex(num []int) []int {
 	ind := 0
 
@@ -34,8 +34,8 @@ func MoveZerosIndex(num []int) []int {
 	return num
 }
 
-// solve 2
-func Summ(pir [][]int, n int) int {
+// Sum solve 2
+func Sum(pir [][]int, n int) int {
 	sum := 0
 	for i := 0; i <= n; i++ {
 		sum += pir[n][i]
@@ -45,7 +45,7 @@ func Summ(pir [][]int, n int) int {
 }
 
 func main() {
-	fmt.Println(Summ([][]int{{1}, {3, 5}, {7, 9, 11}}, 2))
+	fmt.Println(Sum([][]int{{1}, {3, 5}, {7, 9, 11}}, 2))
 	fmt.Println(MoveZerosRecursive([]int{1, 0, 1, 2, 0, 1, 3}))
 	fmt.Println(MoveZerosIndex([]int{1, 0, 1, 2, 0, 1, 3}))
 }
