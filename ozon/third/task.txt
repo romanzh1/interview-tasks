@@ -5,6 +5,7 @@ import (
 	"runtime"
 )
 
+// Вопрос, что выведется в консоль и как это исправить изменив только getSubSlice?
 func main() {
 	slices()
 }

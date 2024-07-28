@@ -18,7 +18,7 @@ func getExternalSignal() chan struct{} {
 	return make(chan struct{})
 }
 
-4. Определить порядок операций в ходе выполнения запроса PostgreSQL
+2. Определить порядок операций в ходе выполнения запроса PostgreSQL
 SELECT
 customers.name,
 COUNT(order_id) as Total_orders,
