@@ -31,7 +31,7 @@ func MoveZerosIndex(num []int) []int {
 		}
 	}
 
-	return num
+	return num[:ind]
 }
 
 // Sum solve 2

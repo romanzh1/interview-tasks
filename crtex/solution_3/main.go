@@ -22,7 +22,7 @@ func B() I {
 	return ret
 }
 
-// False
+// false
 // true
 // false
 // Потому что Go интерфейсное значение состоит из двух частей:
