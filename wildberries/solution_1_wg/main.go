@@ -61,7 +61,6 @@ func addThirdPartyAgents(agents *[]Agent) {
 func pipeEnableAndSend(pipe chan Enabler, agents []Agent) {
 	for _, a := range agents {
 		a.Enable()
-
 		pipe <- &a
 	}
 }

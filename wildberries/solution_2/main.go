@@ -43,6 +43,7 @@ func GetData(key string, getter func() (interface{}, error)) (interface{}, error
 		}
 
 		cacheStore.Store(key, res.data)
+
 		return res.data, nil
 	case <-time.After(timeout):
 		fmt.Printf("Getter result timeout")

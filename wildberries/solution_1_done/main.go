@@ -10,7 +10,7 @@ type Agent struct {
 	Enabled bool
 }
 
-func (a *Agent) Enable() {
+func (a *Agent) Enable() { // Проблема 1: не применяются изменения к агенту
 	a.Enabled = true
 }
 
@@ -35,9 +35,8 @@ func main() {
 	go pipeEnableAndSend(pipe, agents)
 	go pipeProcess(pipe, done)
 
-	<-done
+	<-done // Проблема 2: нужно ожидать обработки агентов
 	fmt.Println("final")
-	close(done)
 }
 
 func addThirdPartyAgents(agents *[]Agent) {
@@ -46,22 +45,22 @@ func addThirdPartyAgents(agents *[]Agent) {
 		{ID: 5},
 	}
 	*agents = append(*agents, thirdParty...)
+	// Проблема 2: надо передавать по указателю, иначе элементы не запишутся, только если записывать по индексам
 }
 
 func pipeEnableAndSend(pipe chan Enabler, agents []Agent) {
 	for _, a := range agents {
-		a := a
 		a.Enable()
-		pipe <- &a
+		pipe <- &a // Проблема 3: теперь нужно передавать указатель потому что интерфейс a реализуется только с указателем
 	}
-	close(pipe)
+	close(pipe) // Проблема 4: нужно закрыть канал, чтобы обработка прекратилась
 }
 
 func pipeProcess(pipe chan Enabler, done chan struct{}) {
-	for a := range pipe {
+	for a := range pipe { // Проблема 5: for range лучше чем for select и он работает пока канал не закрыт
 		dbWrite(a)
 	}
-	done <- struct{}{}
+	close(done)
 }
 
 var dbWrite = func(a any) {
