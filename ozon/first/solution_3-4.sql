@@ -44,7 +44,7 @@ WHERE purchase.date >= '2021-02-01' AND purchase.date < '2021-03-01';
 
 -- task 4
 
-SELECT userr.first_name, userr.last_name, purchase.price
+SELECT DISTINCT userr.first_name, userr.last_name, purchase.price
 FROM userr
          INNER JOIN purchase ON userr.id = purchase.user_id
          LEFT JOIN ban_list ON userr.id = ban_list.user_id
