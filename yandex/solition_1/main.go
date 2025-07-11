@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -62,9 +63,9 @@ func NewBackend(addr string) *BackendImpl {
 }
 
 type Balancer struct {
-	backends []*BackendWithCounter
-	counter  int
-	mu       *sync.Mutex
+	backends           []*BackendWithCounter
+	currentBackCounter int
+	mu                 *sync.Mutex
 }
 
 var _ Backend = &Balancer{}
@@ -87,26 +88,25 @@ func NewBalancer(addrs []string) *Balancer {
 
 func (b *Balancer) Invoke(ctx context.Context, req Request) (Response, error) {
 	b.mu.Lock()
-	b.counter++
-
 	for _, back := range b.backends {
-		if time.Since(back.t) > y {
+		if time.Since(back.t) > y && !back.t.IsZero() {
 			back.block = false
 			back.errorsCounter = 0
+			back.t = time.Time{}
 		}
 	}
-
 	b.mu.Unlock()
 
-	invokeNotComplete := true
-	for invokeNotComplete {
+	for range len(b.backends) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		b.mu.Lock()
-		var back *BackendWithCounter
-		for _, bc := range b.backends {
-			if !bc.block {
-				back = b.backends[b.counter%len(b.backends)]
-				break
-			}
+		back := b.backends[b.currentBackCounter%len(b.backends)]
+		b.currentBackCounter++
+		if back.block {
+			continue
 		}
 		b.mu.Unlock()
 
@@ -118,25 +118,24 @@ func (b *Balancer) Invoke(ctx context.Context, req Request) (Response, error) {
 				back.t = time.Now()
 			}
 
-			if back.errorsCounter >= n && time.Since(back.t) > x {
+			if back.errorsCounter >= n && time.Since(back.t) <= x {
 				back.block = true
-				b.counter++
 				b.mu.Unlock()
+
+				continue
 			} else {
 				b.mu.Unlock()
-				return resp, err
+				return nil, err
 			}
 		}
 
-		invokeNotComplete = false
+		b.mu.Lock()
+		back.errorsCounter = 0
+		back.t = time.Time{}
+		b.mu.Unlock()
 
 		return resp, nil
 	}
 
-	return Response(nil), nil
+	return nil, fmt.Errorf("all backends are blocked")
 }
-
-// 3 backends
-// [нормальный, вечно больной, нормальный]
-//
-//
