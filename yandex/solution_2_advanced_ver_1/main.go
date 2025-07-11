@@ -105,8 +105,8 @@ func (b *Balancer) Invoke(ctx context.Context, req Request) (Response, error) {
 	b.currentBackCounter.Add(1)
 
 	for i := 0; i < len(b.backends); i++ {
-		if err := ctx.Err(); err != nil {
-			return nil, err
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
 		}
 
 		backNext := b.backends[int(b.currentBackCounter.Load())%len(b.backends)]
@@ -117,7 +117,6 @@ func (b *Balancer) Invoke(ctx context.Context, req Request) (Response, error) {
 		} else if i < len(b.backends)-1 {
 			continue
 		}
-
 		if i == len(b.backends)-1 && back.block {
 			break
 		}
@@ -132,7 +131,6 @@ func (b *Balancer) Invoke(ctx context.Context, req Request) (Response, error) {
 			if back.errorsCounter == 1 {
 				back.t = time.Now()
 			}
-
 			if back.errorsCounter >= n && time.Since(back.t) <= x {
 				back.block = true
 				b.mu.Unlock()
