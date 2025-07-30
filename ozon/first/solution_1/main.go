@@ -27,7 +27,7 @@ import (
 //	fmt.Println(x, y, z)
 //}
 
-// [0 1 2 4] [0 1 2 4]
+// [1 2 3] [0 1 2 4] [0 1 2 4]
 func a() {
 	x := []int{}
 	x = append(x, 0)
@@ -35,7 +35,7 @@ func a() {
 	x = append(x, 2)
 	y := append(x, 3)
 	z := append(x, 4)
-	fmt.Println(y, z)
+	fmt.Println(x, y, z)
 }
 
 func main() {
