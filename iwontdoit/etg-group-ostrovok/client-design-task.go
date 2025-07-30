@@ -1,4 +1,4 @@
-package client
+package main
 
 const DefaultPort = 4242
 
