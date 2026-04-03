@@ -1,0 +1,38 @@
+@startuml
+box loms #LightBlue
+  collections "loms-api" as lapi
+  database "loms-db" as ldb
+endbox
+
+box notifier #Pink
+  control consumer as c
+endbox
+
+box kafka #LightGreen
+  queue "order-events" as que
+endbox
+
+activate c
+activate lapi
+-> lapi : CreateOrder()
+lapi -> lapi : validate()
+lapi -> ldb : orderRepo.Create(order)
+lapi -> que : producer.EmitEvent(orderCreated)
+lapi -> lapi : reserveStocks()
+alt is stocks successfully reserved
+  lapi -> ldb : orderRepo.SetStatus(orderID, StatusAwaitingPayment)
+  lapi -> que : producer.EmitEvent(orderAwaitingPayment)
+else
+  lapi -> ldb : orderRepo.SetStatus(orderID, StatusFailed)
+  lapi -> que : producer.EmitEvent(orderFailed)
+end
+deactivate lapi
+
+loop consuming
+c -> que : consumer.FetchEvents()
+loop for each msg
+  c -> c : logger.Print(stdout, event)
+  c -> que : consumer.CommitOffset()
+end
+end
+@enduml

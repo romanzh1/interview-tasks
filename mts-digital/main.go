@@ -29,7 +29,7 @@ type Limiter interface {
 	Allow(key string) bool
 }
 
-type tokenParams struct { // Про многопоточку: хочется добавить мьютекс😁
+type tokenParams struct { // Про многопоточку: хочется добавить мьютекс
 	max        int32
 	speed      int32
 	count      int32

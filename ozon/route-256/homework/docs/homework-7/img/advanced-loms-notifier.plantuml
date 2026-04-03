@@ -1,0 +1,58 @@
+@startuml
+box loms #LightBlue
+  collections "loms-api" as lapi
+  control producer as p
+  database "loms-db" as ldb
+endbox
+
+box notifier #Pink
+  control consumer as c
+endbox
+
+box kafka #LightGreen
+  queue "order-events" as que
+endbox
+
+activate c
+activate p
+activate lapi
+-> lapi : CreateOrder()
+lapi -> lapi : validate()
+lapi -> ldb : db.BeginTx
+activate ldb
+lapi -> ldb : orderRepo.Create(order)
+lapi -> ldb : outboxRepo.CreateEvent(orderCreated)
+lapi -> ldb : db.CommitTx
+deactivate ldb
+lapi -> lapi : reserveStocks()
+lapi -> ldb : db.BeginTx
+activate ldb
+alt is stocks successfully reserved
+  lapi -> ldb : orderRepo.SetStatus(orderID, StatusAwaitingPayment)
+  lapi -> ldb : outboxRepo.CreateEvent(orderAwaitingPayment)
+else
+  lapi -> ldb : orderRepo.SetStatus(orderID, StatusFailed)
+  lapi -> ldb : outboxRepo.CreateEvent(orderFailed)
+end
+lapi -> ldb : db.CommitTx
+deactivate ldb
+deactivate lapi
+
+loop despatch outbox
+p -> ldb : db.BeginTx()
+activate ldb
+p -> ldb : outboxRepo.FetchNextMsg()
+p -> que : producer.EmitEvent(event)
+p -> ldb : outboxRepo.MarkAsSent(event)
+p -> ldb : db.CommitTx()
+deactivate ldb
+end
+
+loop consuming
+c -> que : consumer.FetchEvents()
+loop for each msg
+  c -> c : logger.Print(stdout, event)
+  c -> que : consumer.CommitOffset()
+end
+end
+@enduml
